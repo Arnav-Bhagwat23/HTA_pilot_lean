@@ -1,0 +1,527 @@
+{
+  "project": "HTA Landscaping",
+  "source_document": "C:\\Users\\U6080154\\Downloads\\HTA_Scrapeable_Sources.docx",
+  "description": "Pipeline-ready source configuration for retrieving HTA and related guideline documents by product and country, currently scoped to EU5, Australia, and Canada, with an MVP focus on collecting relevant materials and preferring PDFs when available.",
+  "schema_version": "2.0",
+  "pipeline_goal": "Allow a user to enter a drug or product name and a country, then search the relevant HTA and related evidence sources and return matching materials, preferring PDF documents whenever available.",
+  "default_search_policy": {
+    "hta_sources_years_back": 4,
+    "supporting_sources_years_back": 4,
+    "prefer_recent_documents": true,
+    "notes": "Apply a uniform 4-year search window across all configured sources to control result volume and keep evidence current."
+  },
+  "mvp_scope": {
+    "phase": "document_retrieval_preferred_pdf",
+    "include_only_pdf_outputs": false,
+    "include_non_pdf_outputs": true,
+    "exclude_document_parsing_for_now": true,
+    "exclude_content_extraction_for_now": true,
+    "notes": "The current MVP focuses on finding and retrieving relevant materials, preferring PDFs when available. Non-PDF outputs are allowed and can be converted later if needed. Document parsing, normalization, and downstream content extraction will be added later."
+  },
+  "active_geographies": [
+    "United Kingdom",
+    "France",
+    "Germany",
+    "Italy",
+    "Spain",
+    "Australia",
+    "Canada"
+  ],
+  "field_guide": {
+    "id": "Stable source identifier used in the pipeline.",
+    "name": "Human-readable source name.",
+    "region": "Geographic scope used for grouping and display.",
+    "country": "Primary country for the source, or null for multi-country/global sources.",
+    "source_type": "Category of source such as hta_agency, regulatory, guideline, trial_registry, or literature_database.",
+    "base_url": "Main landing page or search entry point for the source.",
+    "content_description": "Plain-language description of the material expected from the source.",
+    "supported_countries": "Countries for which this source should be considered during search.",
+    "document_types": "Document classes the pipeline should try to retrieve from this source.",
+    "search_strategy": "Planned retrieval approach, such as site_search, source_search_page, manual_query_url, api, or unknown.",
+    "search_inputs": "Input fields expected by the source search flow.",
+    "pdf_expected": "Whether matching results are likely to include PDF documents.",
+    "mvp_include": "Whether this source should be actively used in the PDF-first MVP.",
+    "years_back_limit": "How many years back the pipeline should search for this source by default.",
+    "language": "Primary content language expected from the source.",
+    "source_priority": "Relative priority in the pipeline for this source.",
+    "status": "Current readiness of the source mapping.",
+    "notes": "Implementation notes and caveats for future development."
+  },
+  "document_tracking_model": {
+    "description": "Standard timestamp fields the pipeline should capture for each retrieved document so revisions and refreshes can be tracked over time.",
+    "fields": {
+      "publication_date": "Original publication date shown by the source, when available.",
+      "revision_date": "Latest revision or update date shown by the source, when available.",
+      "retrieved_at": "Timestamp when the pipeline fetched the document metadata or file.",
+      "source_last_seen_at": "Timestamp when the document was last confirmed to still exist at the source URL.",
+      "document_version_label": "Source-provided version label such as v2, updated 2024, or revision 3, when available.",
+      "content_hash": "Hash of the downloaded file so silent content changes can be detected even when the URL stays the same."
+    }
+  },
+  "sources": [
+    {
+      "id": "nice_uk",
+      "name": "NICE",
+      "region": "UK",
+      "country": "United Kingdom",
+      "source_type": "hta_agency",
+      "base_url": "https://www.nice.org.uk/guidance",
+      "content_description": "Technology Appraisal guidance, evidence, committee papers, submissions.",
+      "supported_countries": [
+        "United Kingdom"
+      ],
+      "document_types": [
+        "hta_guidance",
+        "committee_papers",
+        "evidence_submission",
+        "appraisal_document"
+      ],
+      "search_strategy": "source_search_page",
+      "search_inputs": [
+        "product_name"
+      ],
+      "pdf_expected": true,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "English",
+      "source_priority": "high",
+      "status": "mapped_initial",
+      "notes": "High-value UK source. May require title matching plus page-level document extraction."
+    },
+    {
+      "id": "smc_uk",
+      "name": "Scottish Medicines Consortium",
+      "region": "UK",
+      "country": "United Kingdom",
+      "source_type": "hta_agency",
+      "base_url": "https://scottishmedicines.org.uk/medicines-advice",
+      "content_description": "Medicine advice decisions, detailed reports, summaries.",
+      "supported_countries": [
+        "United Kingdom"
+      ],
+      "document_types": [
+        "hta_decision",
+        "detailed_advice",
+        "summary_report"
+      ],
+      "search_strategy": "source_search_page",
+      "search_inputs": [
+        "product_name"
+      ],
+      "pdf_expected": true,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "English",
+      "source_priority": "high",
+      "status": "mapped_initial",
+      "notes": "Important UK source focused on Scotland-specific advice pages and downloadable supporting documents."
+    },
+    {
+      "id": "gba_germany",
+      "name": "G-BA",
+      "region": "Germany",
+      "country": "Germany",
+      "source_type": "hta_agency",
+      "base_url": "https://www.g-ba.de/bewertungsverfahren",
+      "content_description": "Benefit assessment procedures, decisions, dossier links.",
+      "supported_countries": [
+        "Germany"
+      ],
+      "document_types": [
+        "benefit_assessment",
+        "decision_document",
+        "dossier_link"
+      ],
+      "search_strategy": "source_search_page",
+      "search_inputs": [
+        "product_name"
+      ],
+      "pdf_expected": true,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "German",
+      "source_priority": "high",
+      "status": "mapped_initial",
+      "notes": "Core German HTA source. Product names may need exact brand and generic matching."
+    },
+    {
+      "id": "iqwig_germany",
+      "name": "IQWiG",
+      "region": "Germany",
+      "country": "Germany",
+      "source_type": "hta_agency",
+      "base_url": "https://www.iqwig.de",
+      "content_description": "Dossier assessments and evaluation reports.",
+      "supported_countries": [
+        "Germany"
+      ],
+      "document_types": [
+        "dossier_assessment",
+        "evaluation_report"
+      ],
+      "search_strategy": "site_search",
+      "search_inputs": [
+        "product_name"
+      ],
+      "pdf_expected": true,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "German",
+      "source_priority": "high",
+      "status": "mapped_initial",
+      "notes": "Useful companion to G-BA. Search may need alternate spellings and non-English titles."
+    },
+    {
+      "id": "has_france",
+      "name": "HAS",
+      "region": "France",
+      "country": "France",
+      "source_type": "hta_agency",
+      "base_url": "https://www.has-sante.fr",
+      "content_description": "HTA opinions (SMR/ASMR), evaluations, guideline materials.",
+      "supported_countries": [
+        "France"
+      ],
+      "document_types": [
+        "hta_opinion",
+        "evaluation_report",
+        "guideline"
+      ],
+      "search_strategy": "site_search",
+      "search_inputs": [
+        "product_name"
+      ],
+      "pdf_expected": true,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "French",
+      "source_priority": "high",
+      "status": "mapped_initial",
+      "notes": "French content likely requires language-aware matching and normalization."
+    },
+    {
+      "id": "cadth_canada",
+      "name": "CADTH",
+      "region": "Canada",
+      "country": "Canada",
+      "source_type": "hta_agency",
+      "base_url": "https://www.cda-amc.ca/find-reports",
+      "content_description": "Reimbursement review reports, economic analyses.",
+      "supported_countries": [
+        "Canada"
+      ],
+      "document_types": [
+        "reimbursement_review",
+        "economic_analysis",
+        "hta_report"
+      ],
+      "search_strategy": "source_search_page",
+      "search_inputs": [
+        "product_name"
+      ],
+      "pdf_expected": true,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "English",
+      "source_priority": "high",
+      "status": "mapped_initial",
+      "notes": "Good candidate for structured source-specific search and result parsing."
+    },
+    {
+      "id": "pbac_australia",
+      "name": "PBS / PBAC",
+      "region": "Australia",
+      "country": "Australia",
+      "source_type": "hta_agency",
+      "base_url": "https://www.pbs.gov.au",
+      "content_description": "Public Summary Documents and reimbursement decisions.",
+      "supported_countries": [
+        "Australia"
+      ],
+      "document_types": [
+        "public_summary_document",
+        "reimbursement_decision"
+      ],
+      "search_strategy": "site_search",
+      "search_inputs": [
+        "product_name"
+      ],
+      "pdf_expected": true,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "English",
+      "source_priority": "high",
+      "status": "mapped_initial",
+      "notes": "Likely useful for PBS and PBAC outcome retrieval, with mixed HTML and PDF assets."
+    },
+    {
+      "id": "aemps_spain",
+      "name": "AEMPS",
+      "region": "Spain",
+      "country": "Spain",
+      "source_type": "hta_agency",
+      "base_url": "https://www.aemps.gob.es",
+      "content_description": "Therapeutic positioning reports (IPT) and related documents.",
+      "supported_countries": [
+        "Spain"
+      ],
+      "document_types": [
+        "therapeutic_positioning_report",
+        "hta_document"
+      ],
+      "search_strategy": "site_search",
+      "search_inputs": [
+        "product_name"
+      ],
+      "pdf_expected": true,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "Spanish",
+      "source_priority": "high",
+      "status": "mapped_initial",
+      "notes": "Likely document-oriented source where PDFs may be the primary artifact."
+    },
+    {
+      "id": "aifa_italy",
+      "name": "AIFA",
+      "region": "Italy",
+      "country": "Italy",
+      "source_type": "hta_agency",
+      "base_url": "https://www.aifa.gov.it",
+      "content_description": "Pricing and reimbursement determinations.",
+      "supported_countries": [
+        "Italy"
+      ],
+      "document_types": [
+        "pricing_decision",
+        "reimbursement_determination"
+      ],
+      "search_strategy": "site_search",
+      "search_inputs": [
+        "product_name"
+      ],
+      "pdf_expected": true,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "Italian",
+      "source_priority": "medium",
+      "status": "mapped_initial",
+      "notes": "May require broader site search because the source covers many content types."
+    },
+    {
+      "id": "ema_eu",
+      "name": "EMA",
+      "region": "European Union",
+      "country": null,
+      "source_type": "regulatory",
+      "base_url": "https://www.ema.europa.eu/en/medicines",
+      "content_description": "Assessment reports (EPAR), regulatory data.",
+      "supported_countries": [
+        "Austria",
+        "Belgium",
+        "Bulgaria",
+        "Croatia",
+        "Cyprus",
+        "Czech Republic",
+        "Denmark",
+        "Estonia",
+        "Finland",
+        "France",
+        "Germany",
+        "Greece",
+        "Hungary",
+        "Ireland",
+        "Italy",
+        "Latvia",
+        "Lithuania",
+        "Luxembourg",
+        "Malta",
+        "Netherlands",
+        "Poland",
+        "Portugal",
+        "Romania",
+        "Slovakia",
+        "Slovenia",
+        "Spain",
+        "Sweden"
+      ],
+      "document_types": [
+        "epar",
+        "regulatory_assessment"
+      ],
+      "search_strategy": "source_search_page",
+      "search_inputs": [
+        "product_name"
+      ],
+      "pdf_expected": true,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "English",
+      "source_priority": "medium",
+      "status": "mapped_initial",
+      "notes": "Not a pure HTA source, but highly useful supporting regulatory evidence for EU markets."
+    },
+    {
+      "id": "who_iris_global",
+      "name": "WHO IRIS",
+      "region": "Global",
+      "country": null,
+      "source_type": "guideline",
+      "base_url": "https://iris.who.int",
+      "content_description": "Guidelines and global health publications.",
+      "supported_countries": [
+        "all"
+      ],
+      "document_types": [
+        "guideline",
+        "publication"
+      ],
+      "search_strategy": "site_search",
+      "search_inputs": [
+        "product_name"
+      ],
+      "pdf_expected": true,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "English",
+      "source_priority": "low",
+      "status": "mapped_initial",
+      "notes": "Useful for broader evidence context, but likely lower specificity for product-level retrieval."
+    },
+    {
+      "id": "nccn_guidelines",
+      "name": "NCCN Guidelines",
+      "region": "Global",
+      "country": null,
+      "source_type": "guideline",
+      "base_url": "https://www.nccn.org",
+      "content_description": "Clinical guidelines for oncology.",
+      "supported_countries": [
+        "all"
+      ],
+      "document_types": [
+        "guideline"
+      ],
+      "search_strategy": "manual_query_url",
+      "search_inputs": [
+        "product_name",
+        "indication_optional"
+      ],
+      "pdf_expected": true,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "English",
+      "source_priority": "low",
+      "status": "mapped_initial",
+      "notes": "Access restrictions may apply. This source may not be fully automatable depending on authentication and licensing."
+    },
+    {
+      "id": "esmo_guidelines",
+      "name": "ESMO Guidelines",
+      "region": "Global",
+      "country": null,
+      "source_type": "guideline",
+      "base_url": "https://www.esmo.org",
+      "content_description": "European oncology clinical guidelines.",
+      "supported_countries": [
+        "all"
+      ],
+      "document_types": [
+        "guideline"
+      ],
+      "search_strategy": "site_search",
+      "search_inputs": [
+        "product_name",
+        "indication_optional"
+      ],
+      "pdf_expected": true,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "English",
+      "source_priority": "low",
+      "status": "mapped_initial",
+      "notes": "Primarily useful for oncology and may require indication-aware retrieval."
+    },
+    {
+      "id": "clinicaltrials_global",
+      "name": "ClinicalTrials.gov",
+      "region": "Global",
+      "country": null,
+      "source_type": "trial_registry",
+      "base_url": "https://clinicaltrials.gov",
+      "content_description": "Clinical trial registry and results.",
+      "supported_countries": [
+        "all"
+      ],
+      "document_types": [
+        "trial_record",
+        "study_result"
+      ],
+      "search_strategy": "api",
+      "search_inputs": [
+        "product_name"
+      ],
+      "pdf_expected": false,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "English",
+      "source_priority": "low",
+      "status": "mapped_initial",
+      "notes": "Useful supporting evidence source, but results are usually structured records rather than PDFs."
+    },
+    {
+      "id": "pubmed_global",
+      "name": "PubMed",
+      "region": "Global",
+      "country": null,
+      "source_type": "literature_database",
+      "base_url": "https://pubmed.ncbi.nlm.nih.gov",
+      "content_description": "Biomedical publications and research evidence.",
+      "supported_countries": [
+        "all"
+      ],
+      "document_types": [
+        "publication",
+        "abstract"
+      ],
+      "search_strategy": "api",
+      "search_inputs": [
+        "product_name"
+      ],
+      "pdf_expected": false,
+      "mvp_include": true,
+      "years_back_limit": 4,
+      "language": "English",
+      "source_priority": "low",
+      "status": "mapped_initial",
+      "notes": "Great for literature discovery, but full-text PDFs may not be directly available from PubMed itself."
+    },
+    {
+      "id": "openalex_global",
+      "name": "OpenAlex",
+      "region": "Global",
+      "country": null,
+      "source_type": "literature_database",
+      "base_url": "https://openalex.org",
+      "content_description": "Scholarly works and citation data.",
+      "supported_countries": [
+        "all"
+      ],
+      "document_types": [
+        "publication",
+        "citation_record"
+      ],
+      "search_strategy": "api",
+      "search_inputs": [
+        "product_name"
+      ],
+      "pdf_expected": false,
+      "mvp_include": false,
+      "years_back_limit": 4,
+      "language": "English",
+      "source_priority": "low",
+      "status": "mapped_initial",
+      "notes": "Useful as a supplemental evidence layer rather than a primary HTA PDF source."
+    }
+  ]
+}
