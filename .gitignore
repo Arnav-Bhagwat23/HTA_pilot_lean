@@ -13,3 +13,9 @@ __pycache__/
 .env
 .venv/
 venv/
+
+.python/
+downloads/
+results/
+get-pip.py
+python-*-embed-amd64.zip
