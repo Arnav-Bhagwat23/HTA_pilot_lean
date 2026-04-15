@@ -8,12 +8,14 @@ from .selector import select_sources_for_country
 from .storage import build_download_path
 from .sources.cadth import search_cadth
 from .sources.nice import search_nice
+from .sources.pbac import search_pbac
 from .sources.smc import search_smc
 
 
 SUPPORTED_SOURCE_HANDLERS = {
     "cadth_canada": search_cadth,
     "nice_uk": search_nice,
+    "pbac_australia": search_pbac,
     "smc_uk": search_smc,
 }
 
