@@ -1,7 +1,7 @@
 {
   "project": "HTA Landscaping",
   "source_document": "C:\\Users\\U6080154\\Downloads\\HTA_Scrapeable_Sources.docx",
-  "description": "Pipeline-ready source configuration for retrieving HTA and related guideline documents by product and country, currently scoped to EU5, Australia, and Canada, with an MVP focus on collecting relevant materials and preferring PDFs when available.",
+  "description": "Pipeline-ready source configuration for retrieving HTA and related guideline documents by product and country, currently scoped to EU5 and Australia, with an MVP focus on collecting relevant materials and preferring PDFs when available.",
   "schema_version": "2.0",
   "pipeline_goal": "Allow a user to enter a drug or product name and a country, then search the relevant HTA and related evidence sources and return matching materials, preferring PDF documents whenever available.",
   "default_search_policy": {
@@ -24,8 +24,7 @@
     "Germany",
     "Italy",
     "Spain",
-    "Australia",
-    "Canada"
+    "Australia"
   ],
   "field_guide": {
     "id": "Stable source identifier used in the pipeline.",
@@ -198,34 +197,6 @@
       "source_priority": "high",
       "status": "mapped_initial",
       "notes": "French content likely requires language-aware matching and normalization."
-    },
-    {
-      "id": "cadth_canada",
-      "name": "CADTH",
-      "region": "Canada",
-      "country": "Canada",
-      "source_type": "hta_agency",
-      "base_url": "https://www.cda-amc.ca/find-reports",
-      "content_description": "Reimbursement review reports, economic analyses.",
-      "supported_countries": [
-        "Canada"
-      ],
-      "document_types": [
-        "reimbursement_review",
-        "economic_analysis",
-        "hta_report"
-      ],
-      "search_strategy": "source_search_page",
-      "search_inputs": [
-        "product_name"
-      ],
-      "pdf_expected": true,
-      "mvp_include": true,
-      "years_back_limit": 4,
-      "language": "English",
-      "source_priority": "high",
-      "status": "mapped_initial",
-      "notes": "Good candidate for structured source-specific search and result parsing."
     },
     {
       "id": "pbac_australia",

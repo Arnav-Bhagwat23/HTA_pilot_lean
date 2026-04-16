@@ -12,7 +12,6 @@ The current project scope is an HTA material retrieval pipeline for:
 - Italy
 - Spain
 - Australia
-- Canada
 
 The first implementation phase focuses on:
 

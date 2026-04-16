@@ -8,7 +8,6 @@ from .selector import select_sources_for_country
 from .storage import build_download_path
 from .sources.aemps import search_aemps
 from .sources.aifa import search_aifa
-from .sources.cadth import search_cadth
 from .sources.gba import search_gba
 from .sources.has import search_has
 from .sources.nice import search_nice
@@ -19,7 +18,6 @@ from .sources.smc import search_smc
 SUPPORTED_SOURCE_HANDLERS = {
     "aemps_spain": search_aemps,
     "aifa_italy": search_aifa,
-    "cadth_canada": search_cadth,
     "gba_germany": search_gba,
     "has_france": search_has,
     "nice_uk": search_nice,
