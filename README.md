@@ -60,6 +60,12 @@ To run retrieval, extraction, and create the six-sheet Excel review workbook:
 python -m hta_pipeline.cli "Jemperli" "United Kingdom" --mode extract --export-excel
 ```
 
+To run the old-project-compatible full-schema extraction layer:
+
+```bash
+python -m hta_pipeline.cli "Jemperli" "United Kingdom" --mode extract --schema-scope full
+```
+
 To convert an existing filled extraction JSON into Excel:
 
 ```bash

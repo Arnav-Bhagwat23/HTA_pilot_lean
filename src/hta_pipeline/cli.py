@@ -8,6 +8,7 @@ from pathlib import Path
 from .excel_export import export_extraction_json_to_excel, write_extraction_excel
 from .extraction import (
     DEFAULT_EXTRACTION_MODEL,
+    run_progressive_full_schema_extraction,
     run_progressive_hta_extraction,
     save_extraction_record,
 )
@@ -58,6 +59,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Also export an Excel workbook after extraction mode completes.",
     )
     parser.add_argument(
+        "--schema-scope",
+        choices=("hta", "full"),
+        default="hta",
+        help=(
+            "Use 'hta' for the current HTA-only extraction, or 'full' for the "
+            "old-project-compatible schema with Trial, NMA/ITC, Economic, and Guideline sections."
+        ),
+    )
+    parser.add_argument(
         "--model",
         default=DEFAULT_EXTRACTION_MODEL,
         help="OpenAI model to use for extraction mode.",
@@ -102,7 +112,12 @@ def main() -> None:
     run = run_retrieval(request)
     manifest_path = save_manifest(run)
     if args.mode == "extract":
-        extraction_record = run_progressive_hta_extraction(
+        extraction_runner = (
+            run_progressive_full_schema_extraction
+            if args.schema_scope == "full"
+            else run_progressive_hta_extraction
+        )
+        extraction_record = extraction_runner(
             run,
             model=args.model,
             max_documents=args.max_documents,
