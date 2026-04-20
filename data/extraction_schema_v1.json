@@ -1,0 +1,543 @@
+{
+  "schema_version": "1.0",
+  "description": "First-pass JSON extraction schema for HTA landscaping outputs. Based on the prior HTA extraction workbook, extended with pipeline metadata, timeline metadata, lineage metadata, and traceability.",
+  "mvp_sections": [
+    "document_metadata",
+    "timeline_metadata",
+    "hta_summary",
+    "traceability"
+  ],
+  "later_sections": [
+    "trial_data",
+    "nma_itc",
+    "economic_evaluation",
+    "guideline_alignment"
+  ],
+  "sections": {
+    "document_metadata": {
+      "phase": "mvp",
+      "description": "Source and document identity fields supplied primarily by the retrieval pipeline.",
+      "fields": {
+        "product_name": {
+          "type": "string",
+          "required": true,
+          "source": "pipeline_input",
+          "description": "User-entered drug or product name."
+        },
+        "brand_name": {
+          "type": "string|null",
+          "required": false,
+          "source": "alias_lookup_or_extraction",
+          "description": "Brand name when known."
+        },
+        "generic_name": {
+          "type": "string|null",
+          "required": false,
+          "source": "alias_lookup_or_extraction",
+          "description": "Generic or INN name when known."
+        },
+        "country": {
+          "type": "string",
+          "required": true,
+          "source": "pipeline",
+          "description": "Country selected for retrieval."
+        },
+        "source_id": {
+          "type": "string",
+          "required": true,
+          "source": "pipeline",
+          "description": "Stable source identifier such as nice_uk, has_france, or pbac_australia."
+        },
+        "source_name": {
+          "type": "string",
+          "required": true,
+          "source": "pipeline",
+          "description": "Human-readable source name."
+        },
+        "source_type": {
+          "type": "string",
+          "required": true,
+          "source": "pipeline",
+          "description": "Source category such as hta_agency, regulatory, guideline, trial_registry, or literature_database."
+        },
+        "document_title": {
+          "type": "string",
+          "required": true,
+          "source": "pipeline",
+          "description": "Document title captured during retrieval."
+        },
+        "document_type": {
+          "type": "string",
+          "required": true,
+          "source": "pipeline_or_extraction",
+          "description": "Document type from retrieval or extraction, such as technology appraisal guidance, avis, IPT report, or PSD."
+        },
+        "document_url": {
+          "type": "string",
+          "required": true,
+          "source": "pipeline",
+          "description": "Original document URL."
+        },
+        "local_file_path": {
+          "type": "string|null",
+          "required": false,
+          "source": "pipeline",
+          "description": "Local downloaded file path, when a file was downloaded."
+        },
+        "publication_date": {
+          "type": "string|null",
+          "required": false,
+          "source": "pipeline_or_extraction",
+          "description": "Original publication date shown by the source."
+        },
+        "revision_date": {
+          "type": "string|null",
+          "required": false,
+          "source": "pipeline_or_extraction",
+          "description": "Latest revision or update date shown by the source."
+        },
+        "retrieved_at": {
+          "type": "string|null",
+          "required": false,
+          "source": "pipeline",
+          "description": "Timestamp when the document was retrieved."
+        }
+      }
+    },
+    "timeline_metadata": {
+      "phase": "mvp",
+      "description": "Normalized timeline and version-lineage fields generated after retrieval.",
+      "fields": {
+        "event_date": {
+          "type": "string|null",
+          "required": false,
+          "source": "timeline_normalizer",
+          "description": "Primary date used for timeline ordering."
+        },
+        "document_stage": {
+          "type": "string",
+          "required": true,
+          "source": "timeline_normalizer",
+          "description": "Normalized HTA process stage, such as assessment, recommendation, final_decision, committee_review, supporting_material, or post_decision_update."
+        },
+        "document_family": {
+          "type": "string",
+          "required": true,
+          "source": "timeline_normalizer",
+          "description": "Broad family such as hta, guideline, regulatory, registry, literature, or supporting."
+        },
+        "timeline_priority": {
+          "type": "integer",
+          "required": true,
+          "source": "timeline_normalizer",
+          "description": "Priority for ordering documents on the same date. Lower numbers are more important."
+        },
+        "document_lineage_id": {
+          "type": "string|null",
+          "required": false,
+          "source": "lineage_assigner",
+          "description": "Identifier grouping versions of the same document artifact."
+        },
+        "version_rank": {
+          "type": "integer|null",
+          "required": false,
+          "source": "lineage_assigner",
+          "description": "Rank within the lineage, oldest first."
+        },
+        "is_latest_version": {
+          "type": "boolean",
+          "required": true,
+          "source": "lineage_assigner",
+          "description": "Whether this is the latest known version in the lineage."
+        },
+        "lineage_confidence": {
+          "type": "string",
+          "required": true,
+          "allowed_values": [
+            "strong",
+            "moderate",
+            "weak"
+          ],
+          "source": "lineage_assigner",
+          "description": "Confidence in the lineage grouping."
+        },
+        "lineage_basis": {
+          "type": "string",
+          "required": true,
+          "source": "lineage_assigner",
+          "description": "Reason why documents were grouped into the same lineage."
+        }
+      }
+    },
+    "hta_summary": {
+      "phase": "mvp",
+      "description": "Main HTA decision fields adapted from the prior HTA extraction workbook.",
+      "fields": {
+        "indication": {
+          "type": "string|null",
+          "required": false,
+          "source": "extraction",
+          "description": "Disease indication and patient population relevant to the document."
+        },
+        "brand_and_company": {
+          "type": "string|null",
+          "required": false,
+          "source": "extraction",
+          "description": "Brand, INN, and manufacturer, for example Skyrizi (risankizumab) - AbbVie."
+        },
+        "regulatory_approval": {
+          "type": "string|null",
+          "required": false,
+          "source": "extraction",
+          "description": "Approved indication text or regulatory population."
+        },
+        "hta_outcome": {
+          "type": "string|null",
+          "required": false,
+          "source": "extraction",
+          "description": "HTA outcome and favourability, including restrictions or no-access rationale where applicable."
+        },
+        "reimbursed_population": {
+          "type": "string|null",
+          "required": false,
+          "source": "extraction",
+          "description": "Population reimbursed or recommended, including restrictions versus the regulatory label."
+        },
+        "cited_driver_efficacy_vs_comparator": {
+          "type": "object|null",
+          "required": false,
+          "source": "extraction",
+          "description": "Whether efficacy versus comparator was a cited decision driver, with supporting summary.",
+          "shape": {
+            "flag": "Y|N|Unknown",
+            "summary": "string|null",
+            "pages": "array[string]"
+          }
+        },
+        "cited_driver_nma_itc_results": {
+          "type": "object|null",
+          "required": false,
+          "source": "extraction",
+          "description": "Whether NMA/ITC evidence was a cited decision driver, with supporting summary.",
+          "shape": {
+            "flag": "Y|N|Unknown",
+            "summary": "string|null",
+            "pages": "array[string]"
+          }
+        },
+        "cited_driver_safety_tolerability": {
+          "type": "object|null",
+          "required": false,
+          "source": "extraction",
+          "description": "Whether safety or tolerability was a cited decision driver, with supporting summary.",
+          "shape": {
+            "flag": "Y|N|Unknown",
+            "summary": "string|null",
+            "pages": "array[string]"
+          }
+        },
+        "cited_driver_qol": {
+          "type": "object|null",
+          "required": false,
+          "source": "extraction",
+          "description": "Whether quality of life was a cited decision driver, with supporting summary.",
+          "shape": {
+            "flag": "Y|N|Unknown",
+            "summary": "string|null",
+            "pages": "array[string]"
+          }
+        },
+        "cited_driver_economic_factors": {
+          "type": "object|null",
+          "required": false,
+          "source": "extraction",
+          "description": "Whether economic factors were a cited decision driver, with supporting summary.",
+          "shape": {
+            "flag": "Y|N|Unknown",
+            "summary": "string|null",
+            "pages": "array[string]"
+          }
+        },
+        "cited_driver_unmet_need_innovation": {
+          "type": "object|null",
+          "required": false,
+          "source": "extraction",
+          "description": "Whether unmet need or innovation was a cited decision driver, with supporting summary.",
+          "shape": {
+            "flag": "Y|N|Unknown",
+            "summary": "string|null",
+            "pages": "array[string]"
+          }
+        },
+        "rationale": {
+          "type": "string|null",
+          "required": false,
+          "source": "extraction",
+          "description": "Concise rationale explaining why the agency reached the outcome."
+        },
+        "notes": {
+          "type": "string|null",
+          "required": false,
+          "source": "extraction",
+          "description": "Additional caveats, interpretation notes, or country-specific context."
+        }
+      }
+    },
+    "trial_data": {
+      "phase": "later",
+      "description": "Clinical trial evidence fields adapted from the prior workbook.",
+      "fields": {
+        "pivotal_trial": {
+          "type": "string|null",
+          "required": false,
+          "description": "Name and brief description of pivotal trial(s) driving the submission."
+        },
+        "included_population": {
+          "type": "string|null",
+          "required": false,
+          "description": "Trial population and subpopulations."
+        },
+        "design": {
+          "type": "string|null",
+          "required": false,
+          "description": "Trial design, such as RCT, open-label, phase 3, or extension study."
+        },
+        "comparator": {
+          "type": "string|null",
+          "required": false,
+          "description": "Trial comparator(s)."
+        },
+        "outcome_timepoint": {
+          "type": "string|null",
+          "required": false,
+          "description": "Key outcome timepoint(s)."
+        },
+        "arm_and_efficacy_results": {
+          "type": "string|null",
+          "required": false,
+          "description": "Efficacy results by treatment arm."
+        },
+        "qol_results": {
+          "type": "string|null",
+          "required": false,
+          "description": "Quality-of-life trial results."
+        },
+        "safety_results": {
+          "type": "string|null",
+          "required": false,
+          "description": "Safety findings from pivotal and relevant supporting trials."
+        },
+        "notes": {
+          "type": "string|null",
+          "required": false,
+          "description": "Additional trial evidence notes."
+        }
+      }
+    },
+    "nma_itc": {
+      "phase": "later",
+      "description": "NMA and ITC evidence fields adapted from the prior workbook.",
+      "fields": {
+        "agency": {
+          "type": "string|null",
+          "required": false,
+          "description": "Agency or evidence source conducting or reviewing the NMA/ITC."
+        },
+        "year": {
+          "type": "integer|null",
+          "required": false,
+          "description": "Publication or assessment year."
+        },
+        "submission_type": {
+          "type": "string|null",
+          "required": false,
+          "description": "Evidence type, such as Bayesian NMA, meta-analysis, NMA, or ITC."
+        },
+        "treatments_and_trials": {
+          "type": "string|null",
+          "required": false,
+          "description": "Treatments, comparators, and trials included."
+        },
+        "population": {
+          "type": "string|null",
+          "required": false,
+          "description": "Population analyzed."
+        },
+        "key_results": {
+          "type": "string|null",
+          "required": false,
+          "description": "Main indirect-comparison results."
+        },
+        "key_hta_comment": {
+          "type": "string|null",
+          "required": false,
+          "description": "Agency critique or interpretation of the NMA/ITC."
+        },
+        "overall_interpretation": {
+          "type": "string|null",
+          "required": false,
+          "description": "Overall interpretation or colour-code equivalent."
+        },
+        "notes": {
+          "type": "string|null",
+          "required": false,
+          "description": "Additional NMA/ITC evidence notes."
+        }
+      }
+    },
+    "economic_evaluation": {
+      "phase": "later",
+      "description": "Economic evaluation fields adapted from the prior workbook.",
+      "fields": {
+        "agency": {
+          "type": "string|null",
+          "required": false,
+          "description": "Agency conducting or reviewing the economic evaluation."
+        },
+        "year": {
+          "type": "integer|null",
+          "required": false,
+          "description": "Publication or assessment year."
+        },
+        "model_type": {
+          "type": "string|null",
+          "required": false,
+          "description": "Type of economic model used."
+        },
+        "time_horizon": {
+          "type": "string|null",
+          "required": false,
+          "description": "Modelled time horizon and relationship to available clinical evidence duration."
+        },
+        "comparators": {
+          "type": "string|null",
+          "required": false,
+          "description": "Economic comparators."
+        },
+        "population": {
+          "type": "string|null",
+          "required": false,
+          "description": "Population represented in the economic model."
+        },
+        "utility_data_and_key_results": {
+          "type": "string|null",
+          "required": false,
+          "description": "Utility inputs and related value results."
+        },
+        "key_results": {
+          "type": "string|null",
+          "required": false,
+          "description": "Primary economic results and agency interpretation."
+        }
+      }
+    },
+    "guideline_alignment": {
+      "phase": "later",
+      "description": "Guideline evidence and HTA alignment fields adapted from the prior workbook.",
+      "fields": {
+        "guideline_file_name": {
+          "type": "string|null",
+          "required": false,
+          "description": "Guideline document filename or title."
+        },
+        "society": {
+          "type": "string|null",
+          "required": false,
+          "description": "Guideline society or issuing body."
+        },
+        "treatment_flow": {
+          "type": "string|null",
+          "required": false,
+          "description": "Treatment sequencing and pathway recommendations."
+        },
+        "mentioned_drugs": {
+          "type": "string|null",
+          "required": false,
+          "description": "Treatments mentioned and relevant commentary."
+        },
+        "alignment_with_hta": {
+          "type": "string|null",
+          "required": false,
+          "description": "Comparison of guideline positioning with HTA positioning."
+        },
+        "notes": {
+          "type": "string|null",
+          "required": false,
+          "description": "Additional guideline alignment notes."
+        }
+      }
+    },
+    "traceability": {
+      "phase": "mvp",
+      "description": "Audit fields showing how extraction was performed and where values came from.",
+      "fields": {
+        "schema_version": {
+          "type": "string",
+          "required": true,
+          "source": "schema",
+          "description": "Extraction schema version."
+        },
+        "extracted_at": {
+          "type": "string",
+          "required": true,
+          "source": "pipeline",
+          "description": "Timestamp when extraction was performed."
+        },
+        "extraction_model": {
+          "type": "string|null",
+          "required": false,
+          "source": "pipeline",
+          "description": "Model or extraction engine used."
+        },
+        "extraction_status": {
+          "type": "string",
+          "required": true,
+          "allowed_values": [
+            "not_started",
+            "success",
+            "partial",
+            "failed",
+            "needs_review"
+          ],
+          "source": "pipeline",
+          "description": "Extraction status."
+        },
+        "extraction_confidence": {
+          "type": "string",
+          "required": true,
+          "allowed_values": [
+            "high",
+            "medium",
+            "low",
+            "unknown"
+          ],
+          "source": "pipeline_or_extraction",
+          "description": "Overall confidence in the extracted record."
+        },
+        "source_pages": {
+          "type": "array[string]",
+          "required": false,
+          "source": "extraction",
+          "description": "Page references used for extracted claims."
+        },
+        "evidence_snippets": {
+          "type": "array[object]",
+          "required": false,
+          "source": "extraction",
+          "description": "Short evidence snippets supporting extracted values.",
+          "shape": {
+            "field": "string",
+            "page": "string|null",
+            "snippet": "string"
+          }
+        },
+        "warnings": {
+          "type": "array[string]",
+          "required": false,
+          "source": "pipeline_or_extraction",
+          "description": "Warnings such as missing pages, weak match, non-latest version, scanned PDF, or extraction uncertainty."
+        }
+      }
+    }
+  }
+}

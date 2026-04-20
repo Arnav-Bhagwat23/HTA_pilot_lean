@@ -1,0 +1,646 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clarivate.local/hta-landscaping/hta-extraction-schema-v1.schema.json",
+  "title": "HTA Landscaping Extraction Record",
+  "description": "JSON Schema for extracting HTA landscaping information from collected documents. The extraction sections mirror the prior Sanofi HTA workbook schema, with additional pipeline metadata, timeline metadata, and traceability wrappers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_metadata",
+    "timeline_metadata",
+    "hta_results",
+    "traceability"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "document_metadata": {
+      "$ref": "#/$defs/document_metadata"
+    },
+    "timeline_metadata": {
+      "$ref": "#/$defs/timeline_metadata"
+    },
+    "hta_results": {
+      "$ref": "#/$defs/hta_results"
+    },
+    "trial_results": {
+      "$ref": "#/$defs/trial_results"
+    },
+    "nma_itc_results": {
+      "$ref": "#/$defs/nma_itc_results"
+    },
+    "economic_evaluation": {
+      "$ref": "#/$defs/economic_evaluation"
+    },
+    "guideline_results": {
+      "$ref": "#/$defs/guideline_results"
+    },
+    "traceability": {
+      "$ref": "#/$defs/traceability"
+    }
+  },
+  "$defs": {
+    "nullable_string": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "nullable_integer": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "driver_field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "flag",
+        "summary",
+        "pages"
+      ],
+      "properties": {
+        "flag": {
+          "type": "string",
+          "enum": [
+            "Y",
+            "N",
+            "Unknown"
+          ],
+          "description": "Whether this topic was a cited driver of the HTA outcome."
+        },
+        "summary": {
+          "$ref": "#/$defs/nullable_string"
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "document_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "product_name",
+        "country",
+        "source_id",
+        "source_name",
+        "source_type",
+        "document_title",
+        "document_type",
+        "document_url"
+      ],
+      "properties": {
+        "product_name": {
+          "type": "string"
+        },
+        "brand_name": {
+          "$ref": "#/$defs/nullable_string"
+        },
+        "generic_name": {
+          "$ref": "#/$defs/nullable_string"
+        },
+        "country": {
+          "type": "string"
+        },
+        "source_id": {
+          "type": "string"
+        },
+        "source_name": {
+          "type": "string"
+        },
+        "source_type": {
+          "type": "string"
+        },
+        "document_title": {
+          "type": "string"
+        },
+        "document_type": {
+          "type": "string"
+        },
+        "document_url": {
+          "type": "string"
+        },
+        "local_file_path": {
+          "$ref": "#/$defs/nullable_string"
+        },
+        "publication_date": {
+          "$ref": "#/$defs/nullable_string"
+        },
+        "revision_date": {
+          "$ref": "#/$defs/nullable_string"
+        },
+        "retrieved_at": {
+          "$ref": "#/$defs/nullable_string"
+        }
+      }
+    },
+    "timeline_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_stage",
+        "document_family",
+        "timeline_priority",
+        "is_latest_version",
+        "lineage_confidence",
+        "lineage_basis"
+      ],
+      "properties": {
+        "event_date": {
+          "$ref": "#/$defs/nullable_string"
+        },
+        "document_stage": {
+          "type": "string"
+        },
+        "document_family": {
+          "type": "string"
+        },
+        "timeline_priority": {
+          "type": "integer"
+        },
+        "document_lineage_id": {
+          "$ref": "#/$defs/nullable_string"
+        },
+        "version_rank": {
+          "$ref": "#/$defs/nullable_integer"
+        },
+        "is_latest_version": {
+          "type": "boolean"
+        },
+        "lineage_confidence": {
+          "type": "string",
+          "enum": [
+            "strong",
+            "moderate",
+            "weak"
+          ]
+        },
+        "lineage_basis": {
+          "type": "string"
+        }
+      }
+    },
+    "hta_results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indication",
+        "country",
+        "brand_and_company",
+        "regulatory_approval",
+        "hta_outcome",
+        "reimbursed_population",
+        "cited_driver_efficacy_vs_comparator",
+        "cited_driver_nma_itc_results",
+        "cited_driver_safety_tolerability",
+        "cited_driver_qol",
+        "cited_driver_economic_factors",
+        "cited_driver_unmet_need_innovation",
+        "rationale",
+        "notes"
+      ],
+      "properties": {
+        "indication": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Indication",
+          "description": "Old schema rule: Leave blank in the notebook workflow and populate from filename. In this pipeline, populate from extracted document text or later indication normalization."
+        },
+        "country": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Country",
+          "description": "Old schema rule: Leave blank in the notebook workflow and populate from filename. In this pipeline, populate from retrieval metadata."
+        },
+        "brand_and_company": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Brand and Company",
+          "description": "Brand, INN, and manufacturer for the index drug."
+        },
+        "regulatory_approval": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Regulatory Approval",
+          "description": "Indication text or patient population for which the index drug is approved as per the regulatory label."
+        },
+        "hta_outcome": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "HTA Outcome",
+          "description": "Free-text rationale describing favourability of the HTA recommendation, from very favourable/no restrictions to very unfavourable/no access. Include France SMR/ASMR or Germany added-benefit ratings when applicable."
+        },
+        "reimbursed_population": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Reimbursed Population",
+          "description": "Reimbursed population and restrictions versus regulatory label."
+        },
+        "cited_driver_efficacy_vs_comparator": {
+          "$ref": "#/$defs/driver_field",
+          "title": "Cited Driver: Efficacy vs Comparator",
+          "description": "Whether direct efficacy versus comparator was a key HTA outcome driver, excluding NMA/ITC evidence."
+        },
+        "cited_driver_nma_itc_results": {
+          "$ref": "#/$defs/driver_field",
+          "title": "Cited Driver: NMA/ITC Results",
+          "description": "Whether NMA/ITC evidence was a key HTA outcome driver."
+        },
+        "cited_driver_safety_tolerability": {
+          "$ref": "#/$defs/driver_field",
+          "title": "Cited Driver: Safety / Tolerability",
+          "description": "Whether safety or tolerability was a key HTA outcome driver."
+        },
+        "cited_driver_qol": {
+          "$ref": "#/$defs/driver_field",
+          "title": "Cited Driver: QoL",
+          "description": "Whether quality of life evidence was a key HTA outcome driver."
+        },
+        "cited_driver_economic_factors": {
+          "$ref": "#/$defs/driver_field",
+          "title": "Cited Driver: Economic Factors",
+          "description": "Whether economic factors were a key HTA outcome driver."
+        },
+        "cited_driver_unmet_need_innovation": {
+          "$ref": "#/$defs/driver_field",
+          "title": "Cited Driver: Unmet Need / Innovation",
+          "description": "Whether unmet need or innovation was a key HTA outcome driver."
+        },
+        "rationale": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Rationale",
+          "description": "Key discussion points explaining how the recommendation was reached, including evidence quality, submitted population, innovation/unmet need, comparators, and endpoint acceptability."
+        },
+        "notes": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Notes",
+          "description": "Additional remarks, including subgroups, multiple-report context, latest-version additions, IGA scale issues, and guideline-positioning commentary when available."
+        }
+      }
+    },
+    "trial_results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indication",
+        "country",
+        "brand_and_company",
+        "regulatory_approval",
+        "pivotal_trial",
+        "included_population",
+        "design",
+        "comparator",
+        "outcome_week",
+        "arm_and_efficacy_results",
+        "qol",
+        "safety",
+        "notes"
+      ],
+      "properties": {
+        "indication": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Indication"
+        },
+        "country": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Country"
+        },
+        "brand_and_company": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Brand and Company",
+          "description": "Brand, INN, and manufacturer for the index drug."
+        },
+        "regulatory_approval": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Regulatory Approval",
+          "description": "Regulatory label population."
+        },
+        "pivotal_trial": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Pivotal Trial",
+          "description": "Name of pivotal trial driving the submission, plus clearly labelled other supporting trials when used by the agency."
+        },
+        "included_population": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Included Population",
+          "description": "Populations included in pivotal and other relevant trials, including general and subgroup populations."
+        },
+        "design": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Design",
+          "description": "Pivotal and other relevant trial designs."
+        },
+        "comparator": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Comparator",
+          "description": "Comparator arms in relevant trials."
+        },
+        "outcome_week": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Outcome Week",
+          "description": "Outcome collection timepoints by population, subpopulation, comparator, and trial."
+        },
+        "arm_and_efficacy_results": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Arm and Efficacy Results",
+          "description": "Efficacy results by trial arm and agency commentary on acceptability."
+        },
+        "qol": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "QoL",
+          "description": "Quality-of-life results by trial arm and agency commentary on acceptability."
+        },
+        "safety": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Safety",
+          "description": "Key safety results and agency perception of product safety."
+        },
+        "notes": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Notes",
+          "description": "Overall remarks on evidence quality, prioritization, and impact on HTA assessment."
+        }
+      }
+    },
+    "nma_itc_results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indication",
+        "country",
+        "drug",
+        "agency",
+        "year",
+        "submission_and_type",
+        "treatments_and_trials",
+        "population",
+        "key_results",
+        "key_hta_comment",
+        "overall_interpretation_colour_code"
+      ],
+      "properties": {
+        "indication": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Indication"
+        },
+        "country": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Country"
+        },
+        "drug": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Drug"
+        },
+        "agency": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Agency",
+          "description": "HTA body or evidence source conducting or reviewing the NMA/ITC."
+        },
+        "year": {
+          "$ref": "#/$defs/nullable_integer",
+          "title": "Year"
+        },
+        "submission_and_type": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Submission & Type",
+          "description": "Type of submission or analysis, such as Bayesian NMA, meta-analysis, NMA, or ITC."
+        },
+        "treatments_and_trials": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Treatments (and trials)",
+          "description": "Comparators and included trials used to demonstrate evidence for the index drug."
+        },
+        "population": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Population",
+          "description": "Specific population analyzed in the NMA/ITC."
+        },
+        "key_results": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Key Results",
+          "description": "Qualitative summary of NMA/ITC results and acceptability."
+        },
+        "key_hta_comment": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Key HTA Comment",
+          "description": "Agency interpretation, methodological notes, limitations, and impact on decision."
+        },
+        "overall_interpretation_colour_code": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "title": "Overall Interpretation (Colour Code)",
+          "enum": [
+            "Superior",
+            "Equivalent or mixed results",
+            "Inferior/uncertain",
+            "N/A",
+            null
+          ]
+        },
+        "notes": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Notes"
+        }
+      }
+    },
+    "economic_evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indication",
+        "country",
+        "drug",
+        "agency",
+        "year",
+        "model_type",
+        "time_horizon",
+        "comparators",
+        "population",
+        "utility_data_and_key_results",
+        "key_results"
+      ],
+      "properties": {
+        "indication": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Indication"
+        },
+        "country": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Country"
+        },
+        "drug": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Drug"
+        },
+        "agency": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Agency",
+          "description": "HTA body or evidence source conducting or reviewing the economic evaluation."
+        },
+        "year": {
+          "$ref": "#/$defs/nullable_integer",
+          "title": "Year"
+        },
+        "model_type": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Model Type",
+          "description": "Type of economic model used for the index drug."
+        },
+        "time_horizon": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Time horizon",
+          "description": "Model time horizon and relationship between available evidence duration and modeled duration."
+        },
+        "comparators": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Comparators",
+          "description": "Comparators used in the economic model and whether they align with guideline, clinical, and trial comparators."
+        },
+        "population": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Population",
+          "description": "Patient population used in the economic model, including subgroups when analyzed."
+        },
+        "utility_data_and_key_results": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Utility Data and Key Results",
+          "description": "Utility data used and committee conclusions about economic model outcomes."
+        },
+        "key_results": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Key Results",
+          "description": "Overall agency considerations about model acceptability, strengths, limitations, evidence reliability, and local-practice fit."
+        }
+      }
+    },
+    "guideline_results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indication",
+        "country",
+        "guideline_file_name",
+        "society",
+        "treatment_flow",
+        "mentioned_drugs",
+        "alignment_with_hta",
+        "notes"
+      ],
+      "properties": {
+        "indication": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Indication"
+        },
+        "country": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Country"
+        },
+        "guideline_file_name": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Guideline file name"
+        },
+        "society": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Society",
+          "description": "Issuing society or guideline body."
+        },
+        "treatment_flow": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Treatment Flow",
+          "description": "Treatment sequencing and rationale from the agency or society."
+        },
+        "mentioned_drugs": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Mentioned drugs",
+          "description": "Treatments mentioned and commentary on each, including disease-specific products of interest."
+        },
+        "alignment_with_hta": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Alignment with HTA",
+          "description": "Commentary on whether guideline positioning and treatment value are reflected in HTA reports, including convergence or divergence."
+        },
+        "notes": {
+          "$ref": "#/$defs/nullable_string",
+          "title": "Notes",
+          "description": "Additional evidence-quality, endpoint, patient-segment, trial-duration, and evidence-generation considerations."
+        }
+      }
+    },
+    "traceability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "extracted_at",
+        "extraction_status",
+        "extraction_confidence",
+        "source_pages",
+        "warnings"
+      ],
+      "properties": {
+        "extracted_at": {
+          "type": "string"
+        },
+        "extraction_model": {
+          "$ref": "#/$defs/nullable_string"
+        },
+        "extraction_status": {
+          "type": "string",
+          "enum": [
+            "not_started",
+            "success",
+            "partial",
+            "failed",
+            "needs_review"
+          ]
+        },
+        "extraction_confidence": {
+          "type": "string",
+          "enum": [
+            "high",
+            "medium",
+            "low",
+            "unknown"
+          ]
+        },
+        "source_pages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_snippets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "field",
+              "snippet"
+            ],
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "page": {
+                "$ref": "#/$defs/nullable_string"
+              },
+              "snippet": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

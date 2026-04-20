@@ -26,9 +26,22 @@ The first implementation phase focuses on:
 - `docs/timeline_schema.md`: timeline normalization and document ordering design
 - `docs/schema_backfill_strategy.md`: rules for filling missing schema fields from previous versions
 - `docs/document_lineage_strategy.md`: rules for grouping documents into version lineages
+- `docs/extraction_schema_design.md`: first-pass extraction schema design based on the prior HTA workbook
+- `docs/progressive_extraction_strategy.md`: newest-first progressive fill strategy with field-level provenance
+- `data/extraction_schema_v1.json`: machine-readable draft extraction schema
+- `data/hta_extraction_schema_v1.schema.json`: formal JSON Schema for extracted HTA records
+- `data/hta_extraction_working_schema_v1.schema.json`: provenance-rich working schema for progressive extraction
 - `src/hta_pipeline/`: pipeline package
 - `downloads/`: retrieved files
 - `results/`: saved outputs and manifests
+
+## Local secrets
+
+Create a local `.env` file for secrets. Do not commit it.
+
+```bash
+OPENAI_API_KEY=your_key_here
+```
 
 ## Planned local run
 
