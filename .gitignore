@@ -17,5 +17,6 @@ venv/
 .python/
 downloads/
 results/
+_inspect_sanofi_zip/
 get-pip.py
 python-*-embed-amd64.zip

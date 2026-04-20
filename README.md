@@ -23,6 +23,9 @@ The first implementation phase focuses on:
 ## Project structure
 
 - `data/hta_sources.json`: source configuration and MVP scope
+- `docs/timeline_schema.md`: timeline normalization and document ordering design
+- `docs/schema_backfill_strategy.md`: rules for filling missing schema fields from previous versions
+- `docs/document_lineage_strategy.md`: rules for grouping documents into version lineages
 - `src/hta_pipeline/`: pipeline package
 - `downloads/`: retrieved files
 - `results/`: saved outputs and manifests
