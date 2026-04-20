@@ -9,6 +9,12 @@ from typing import Any, Protocol
 
 from .env import get_openai_api_key
 from .models import RetrievalRun
+from .schema import (
+    HTA_RESULT_FIELDS,
+    SCHEMA_VERSION,
+    build_empty_extraction_sections,
+    empty_extracted_field,
+)
 from .storage import results_dir, slugify
 from .timeline import (
     TimelineDocument,
@@ -19,23 +25,6 @@ from .timeline import (
 
 
 DEFAULT_EXTRACTION_MODEL = "gpt-5.1"
-
-HTA_RESULT_FIELDS = [
-    "indication",
-    "country",
-    "brand_and_company",
-    "regulatory_approval",
-    "hta_outcome",
-    "reimbursed_population",
-    "cited_driver_efficacy_vs_comparator",
-    "cited_driver_nma_itc_results",
-    "cited_driver_safety_tolerability",
-    "cited_driver_qol",
-    "cited_driver_economic_factors",
-    "cited_driver_unmet_need_innovation",
-    "rationale",
-    "notes",
-]
 
 
 class ExtractionClient(Protocol):
@@ -54,21 +43,6 @@ class ExtractionClient(Protocol):
 
 def utc_timestamp() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-
-
-def empty_extracted_field() -> dict[str, Any]:
-    return {
-        "value": None,
-        "fill_method": "not_found",
-        "source_document_id": None,
-        "source_document_title": None,
-        "source_document_url": None,
-        "source_document_date": None,
-        "source_page": None,
-        "evidence_snippet": None,
-        "confidence": "unknown",
-        "warnings": [],
-    }
 
 
 def field_has_value(field: dict[str, Any]) -> bool:
@@ -109,7 +83,7 @@ def build_working_record(
     now = utc_timestamp()
     ordered_documents = order_documents_for_extraction(documents)
     return {
-        "schema_version": "1.0",
+        "schema_version": SCHEMA_VERSION,
         "document_set": {
             "product_name": run.request.product_name,
             "indication": None,
@@ -120,11 +94,18 @@ def build_working_record(
                     or f"{document.source_id}::{document.document_url}",
                     "title": document.title,
                     "source_id": document.source_id,
+                    "source_name": document.source_name,
                     "document_url": document.document_url,
                     "local_file_path": document.local_path,
+                    "document_type": document.document_type,
+                    "format": document.format,
                     "event_date": document.event_date,
+                    "publication_date": document.publication_date,
+                    "revision_date": document.revision_date,
                     "timeline_priority": document.timeline_priority,
                     "is_latest_version": document.is_latest_version,
+                    "match_term": document.match_term,
+                    "match_confidence": document.match_confidence,
                     "processing_order": index,
                 }
                 for index, document in enumerate(ordered_documents, start=1)
@@ -136,9 +117,7 @@ def build_working_record(
             "overwrite_populated_fields": False,
             "missing_field_policy": "leave_null_when_not_supported",
         },
-        "hta_results": {
-            field_name: empty_extracted_field() for field_name in HTA_RESULT_FIELDS
-        },
+        **build_empty_extraction_sections(),
         "traceability": {
             "created_at": now,
             "updated_at": now,

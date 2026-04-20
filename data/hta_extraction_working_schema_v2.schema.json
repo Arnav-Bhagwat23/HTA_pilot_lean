@@ -1,0 +1,503 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clarivate.local/hta-landscaping/hta-extraction-working-schema-v2.schema.json",
+  "title": "HTA Landscaping Working Extraction Record v2",
+  "description": "Old-project-compatible progressive extraction schema. HTA Results is single-record for one product/country run; Trial, NMA/ITC, Economic, and Guideline sections are repeatable arrays so the pipeline can capture multiple trials, comparisons, models, guideline societies, or therapy flows.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_set",
+    "progressive_fill",
+    "hta_results",
+    "trial_results",
+    "nma_itc_results",
+    "economic_evaluation",
+    "guideline_results",
+    "traceability"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "document_set": {
+      "$ref": "#/$defs/document_set"
+    },
+    "progressive_fill": {
+      "$ref": "#/$defs/progressive_fill"
+    },
+    "hta_results": {
+      "$ref": "#/$defs/hta_results_working"
+    },
+    "trial_results": {
+      "type": "array",
+      "description": "Repeatable rows. Add one item per distinct trial or trial grouping. Leave as an empty array when no trial evidence is extracted.",
+      "items": {
+        "$ref": "#/$defs/trial_result_item"
+      }
+    },
+    "nma_itc_results": {
+      "type": "array",
+      "description": "Repeatable rows. Add one item per distinct NMA, ITC, meta-analysis, comparison set, or agency-reviewed indirect evidence package. Leave as an empty array when not found.",
+      "items": {
+        "$ref": "#/$defs/nma_itc_result_item"
+      }
+    },
+    "economic_evaluation": {
+      "type": "array",
+      "description": "Repeatable rows. Add one item per economic model, economic scenario, submission, or agency-reviewed model. Leave as an empty array when not found.",
+      "items": {
+        "$ref": "#/$defs/economic_evaluation_item"
+      }
+    },
+    "guideline_results": {
+      "type": "array",
+      "description": "Repeatable rows. Add one item per guideline, society, country-specific guideline, or treatment-flow source. Leave as an empty array when not found.",
+      "items": {
+        "$ref": "#/$defs/guideline_result_item"
+      }
+    },
+    "traceability": {
+      "$ref": "#/$defs/traceability"
+    }
+  },
+  "$defs": {
+    "field_confidence": {
+      "type": "string",
+      "enum": ["high", "medium", "low", "unknown"]
+    },
+    "fill_method": {
+      "type": "string",
+      "enum": [
+        "explicit_latest",
+        "explicit_backfill",
+        "inferred_final_pass",
+        "pipeline_metadata",
+        "not_found"
+      ]
+    },
+    "extracted_field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "fill_method", "confidence", "warnings"],
+      "properties": {
+        "value": {
+          "type": ["string", "number", "boolean", "array", "object", "null"]
+        },
+        "fill_method": {
+          "$ref": "#/$defs/fill_method"
+        },
+        "source_document_id": {
+          "type": ["string", "null"]
+        },
+        "source_document_title": {
+          "type": ["string", "null"]
+        },
+        "source_document_url": {
+          "type": ["string", "null"]
+        },
+        "source_document_date": {
+          "type": ["string", "null"]
+        },
+        "source_page": {
+          "type": ["string", "null"]
+        },
+        "evidence_snippet": {
+          "type": ["string", "null"]
+        },
+        "confidence": {
+          "$ref": "#/$defs/field_confidence"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "repeatable_item_base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["row_id", "row_label", "row_type", "fields"],
+      "properties": {
+        "row_id": {
+          "type": ["string", "null"],
+          "description": "Stable row identifier when known, for example a trial acronym, model scenario, guideline society, or generated row id."
+        },
+        "row_label": {
+          "type": ["string", "null"],
+          "description": "Human-readable label for this extracted row."
+        },
+        "row_type": {
+          "type": ["string", "null"],
+          "description": "Optional classifier such as pivotal_trial, supporting_trial, NMA, ITC, base_case_model, scenario_analysis, guideline, or treatment_flow."
+        },
+        "fields": {
+          "type": "object"
+        }
+      }
+    },
+    "document_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product_name", "country", "documents_considered"],
+      "properties": {
+        "product_name": {
+          "type": "string"
+        },
+        "indication": {
+          "type": ["string", "null"]
+        },
+        "country": {
+          "type": "string"
+        },
+        "documents_considered": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["document_id", "title", "source_id", "processing_order"],
+            "properties": {
+              "document_id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "source_id": {
+                "type": "string"
+              },
+              "source_name": {
+                "type": ["string", "null"]
+              },
+              "document_url": {
+                "type": ["string", "null"]
+              },
+              "local_file_path": {
+                "type": ["string", "null"]
+              },
+              "document_type": {
+                "type": ["string", "null"]
+              },
+              "format": {
+                "type": ["string", "null"]
+              },
+              "event_date": {
+                "type": ["string", "null"]
+              },
+              "publication_date": {
+                "type": ["string", "null"]
+              },
+              "revision_date": {
+                "type": ["string", "null"]
+              },
+              "timeline_priority": {
+                "type": ["integer", "null"]
+              },
+              "is_latest_version": {
+                "type": "boolean"
+              },
+              "match_term": {
+                "type": ["string", "null"]
+              },
+              "match_confidence": {
+                "type": ["string", "null"]
+              },
+              "processing_order": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    },
+    "progressive_fill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy",
+        "allow_final_inference",
+        "overwrite_populated_fields",
+        "missing_field_policy"
+      ],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "const": "newest_explicit_then_backfill_then_controlled_inference"
+        },
+        "allow_final_inference": {
+          "type": "boolean"
+        },
+        "overwrite_populated_fields": {
+          "type": "boolean",
+          "const": false
+        },
+        "missing_field_policy": {
+          "type": "string",
+          "const": "leave_null_when_not_supported"
+        }
+      }
+    },
+    "hta_results_working": {
+      "$ref": "#/$defs/hta_result_fields"
+    },
+    "trial_result_item": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/repeatable_item_base"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "$ref": "#/$defs/trial_result_fields"
+            }
+          }
+        }
+      ]
+    },
+    "nma_itc_result_item": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/repeatable_item_base"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "$ref": "#/$defs/nma_itc_result_fields"
+            }
+          }
+        }
+      ]
+    },
+    "economic_evaluation_item": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/repeatable_item_base"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "$ref": "#/$defs/economic_evaluation_fields"
+            }
+          }
+        }
+      ]
+    },
+    "guideline_result_item": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/repeatable_item_base"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "$ref": "#/$defs/guideline_result_fields"
+            }
+          }
+        }
+      ]
+    },
+    "hta_result_fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indication",
+        "country",
+        "brand_and_company",
+        "regulatory_approval",
+        "hta_outcome",
+        "reimbursed_population",
+        "cited_driver_efficacy_vs_comparator",
+        "cited_driver_nma_itc_results",
+        "cited_driver_safety_tolerability",
+        "cited_driver_qol",
+        "cited_driver_economic_factors",
+        "cited_driver_unmet_need_innovation",
+        "rationale",
+        "notes"
+      ],
+      "properties": {
+        "indication": { "$ref": "#/$defs/extracted_field" },
+        "country": { "$ref": "#/$defs/extracted_field" },
+        "brand_and_company": { "$ref": "#/$defs/extracted_field" },
+        "regulatory_approval": { "$ref": "#/$defs/extracted_field" },
+        "hta_outcome": { "$ref": "#/$defs/extracted_field" },
+        "reimbursed_population": { "$ref": "#/$defs/extracted_field" },
+        "cited_driver_efficacy_vs_comparator": { "$ref": "#/$defs/extracted_field" },
+        "cited_driver_nma_itc_results": { "$ref": "#/$defs/extracted_field" },
+        "cited_driver_safety_tolerability": { "$ref": "#/$defs/extracted_field" },
+        "cited_driver_qol": { "$ref": "#/$defs/extracted_field" },
+        "cited_driver_economic_factors": { "$ref": "#/$defs/extracted_field" },
+        "cited_driver_unmet_need_innovation": { "$ref": "#/$defs/extracted_field" },
+        "rationale": { "$ref": "#/$defs/extracted_field" },
+        "notes": { "$ref": "#/$defs/extracted_field" }
+      }
+    },
+    "trial_result_fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indication",
+        "country",
+        "brand_and_company",
+        "regulatory_approval",
+        "pivotal_trial",
+        "included_population",
+        "design",
+        "comparator",
+        "outcome_week",
+        "arm_and_efficacy_results",
+        "qol",
+        "safety",
+        "notes"
+      ],
+      "properties": {
+        "indication": { "$ref": "#/$defs/extracted_field" },
+        "country": { "$ref": "#/$defs/extracted_field" },
+        "brand_and_company": { "$ref": "#/$defs/extracted_field" },
+        "regulatory_approval": { "$ref": "#/$defs/extracted_field" },
+        "pivotal_trial": { "$ref": "#/$defs/extracted_field" },
+        "included_population": { "$ref": "#/$defs/extracted_field" },
+        "design": { "$ref": "#/$defs/extracted_field" },
+        "comparator": { "$ref": "#/$defs/extracted_field" },
+        "outcome_week": { "$ref": "#/$defs/extracted_field" },
+        "arm_and_efficacy_results": { "$ref": "#/$defs/extracted_field" },
+        "qol": { "$ref": "#/$defs/extracted_field" },
+        "safety": { "$ref": "#/$defs/extracted_field" },
+        "notes": { "$ref": "#/$defs/extracted_field" }
+      }
+    },
+    "nma_itc_result_fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indication",
+        "country",
+        "drug",
+        "agency",
+        "year",
+        "submission_and_type",
+        "treatments_and_trials",
+        "population",
+        "key_results",
+        "key_hta_comment",
+        "overall_interpretation_colour_code",
+        "notes"
+      ],
+      "properties": {
+        "indication": { "$ref": "#/$defs/extracted_field" },
+        "country": { "$ref": "#/$defs/extracted_field" },
+        "drug": { "$ref": "#/$defs/extracted_field" },
+        "agency": { "$ref": "#/$defs/extracted_field" },
+        "year": { "$ref": "#/$defs/extracted_field" },
+        "submission_and_type": { "$ref": "#/$defs/extracted_field" },
+        "treatments_and_trials": { "$ref": "#/$defs/extracted_field" },
+        "population": { "$ref": "#/$defs/extracted_field" },
+        "key_results": { "$ref": "#/$defs/extracted_field" },
+        "key_hta_comment": { "$ref": "#/$defs/extracted_field" },
+        "overall_interpretation_colour_code": { "$ref": "#/$defs/extracted_field" },
+        "notes": { "$ref": "#/$defs/extracted_field" }
+      }
+    },
+    "economic_evaluation_fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indication",
+        "country",
+        "drug",
+        "agency",
+        "year",
+        "model_type",
+        "time_horizon",
+        "comparators",
+        "population",
+        "utility_data_and_key_results",
+        "key_results"
+      ],
+      "properties": {
+        "indication": { "$ref": "#/$defs/extracted_field" },
+        "country": { "$ref": "#/$defs/extracted_field" },
+        "drug": { "$ref": "#/$defs/extracted_field" },
+        "agency": { "$ref": "#/$defs/extracted_field" },
+        "year": { "$ref": "#/$defs/extracted_field" },
+        "model_type": { "$ref": "#/$defs/extracted_field" },
+        "time_horizon": { "$ref": "#/$defs/extracted_field" },
+        "comparators": { "$ref": "#/$defs/extracted_field" },
+        "population": { "$ref": "#/$defs/extracted_field" },
+        "utility_data_and_key_results": { "$ref": "#/$defs/extracted_field" },
+        "key_results": { "$ref": "#/$defs/extracted_field" }
+      }
+    },
+    "guideline_result_fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indication",
+        "country",
+        "guideline_file_name",
+        "society",
+        "treatment_flow",
+        "mentioned_drugs",
+        "alignment_with_hta",
+        "notes"
+      ],
+      "properties": {
+        "indication": { "$ref": "#/$defs/extracted_field" },
+        "country": { "$ref": "#/$defs/extracted_field" },
+        "guideline_file_name": { "$ref": "#/$defs/extracted_field" },
+        "society": { "$ref": "#/$defs/extracted_field" },
+        "treatment_flow": { "$ref": "#/$defs/extracted_field" },
+        "mentioned_drugs": { "$ref": "#/$defs/extracted_field" },
+        "alignment_with_hta": { "$ref": "#/$defs/extracted_field" },
+        "notes": { "$ref": "#/$defs/extracted_field" }
+      }
+    },
+    "traceability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created_at", "updated_at", "extraction_status", "warnings"],
+      "properties": {
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" },
+        "extraction_model": { "type": ["string", "null"] },
+        "extraction_status": {
+          "type": "string",
+          "enum": ["not_started", "in_progress", "success", "partial", "failed", "needs_review"]
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "audit_log": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["timestamp", "action"],
+            "properties": {
+              "timestamp": { "type": "string" },
+              "action": { "type": "string" },
+              "document_id": { "type": ["string", "null"] },
+              "fields_attempted": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "fields_filled": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "notes": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

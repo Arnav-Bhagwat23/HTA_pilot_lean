@@ -31,6 +31,7 @@ The first implementation phase focuses on:
 - `data/extraction_schema_v1.json`: machine-readable draft extraction schema
 - `data/hta_extraction_schema_v1.schema.json`: formal JSON Schema for extracted HTA records
 - `data/hta_extraction_working_schema_v1.schema.json`: provenance-rich working schema for progressive extraction
+- `data/hta_extraction_working_schema_v2.schema.json`: old-project-compatible working schema with repeatable Trial, NMA/ITC, Economic, and Guideline sections
 - `src/hta_pipeline/`: pipeline package
 - `downloads/`: retrieved files
 - `results/`: saved outputs and manifests
@@ -51,4 +52,16 @@ Once Python is installed:
 pip install -r requirements.txt
 set PYTHONPATH=src
 python -m hta_pipeline.cli "drug name" "United Kingdom"
+```
+
+To run retrieval, extraction, and create the six-sheet Excel review workbook:
+
+```bash
+python -m hta_pipeline.cli "Jemperli" "United Kingdom" --mode extract --export-excel
+```
+
+To convert an existing filled extraction JSON into Excel:
+
+```bash
+python -m hta_pipeline.cli --mode export-excel --extraction-json results/extractions/united-kingdom/jemperli.json
 ```
