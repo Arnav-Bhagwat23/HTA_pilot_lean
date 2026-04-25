@@ -5,6 +5,7 @@ import time
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, Protocol
 
 from .env import get_openai_api_key
@@ -27,7 +28,9 @@ from .timeline import (
 )
 
 
-DEFAULT_EXTRACTION_MODEL = "gpt-5.1"
+DEFAULT_EXTRACTION_MODEL = "gpt-4.1-mini"
+DEFAULT_FULL_SCHEMA_MODEL = "gpt-4.1-mini"
+DEFAULT_PDF_CHUNK_MAX_PAGES = 12
 
 
 class ExtractionClient(Protocol):
@@ -48,6 +51,7 @@ class ExtractionClient(Protocol):
         *,
         document: TimelineDocument,
         document_path: Path,
+        document_chunk_label: str | None = None,
         extraction_targets: dict[str, Any],
         current_record: dict[str, Any],
         fill_method: str,
@@ -58,6 +62,80 @@ class ExtractionClient(Protocol):
 
 def utc_timestamp() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def split_pdf_into_chunks(
+    document_path: Path, output_dir: Path, *, max_pages: int = DEFAULT_PDF_CHUNK_MAX_PAGES
+) -> list[tuple[Path, str | None]]:
+    if max_pages <= 0:
+        return [(document_path, None)]
+
+    from pypdf import PdfReader, PdfWriter
+
+    reader = PdfReader(str(document_path))
+    page_count = len(reader.pages)
+    if page_count <= max_pages:
+        return [(document_path, f"pages 1-{page_count}")]
+
+    chunks: list[tuple[Path, str | None]] = []
+    for start in range(0, page_count, max_pages):
+        end = min(start + max_pages, page_count)
+        writer = PdfWriter()
+        for page_index in range(start, end):
+            writer.add_page(reader.pages[page_index])
+
+        chunk_path = output_dir / f"{document_path.stem}__pages_{start + 1}_{end}.pdf"
+        with chunk_path.open("wb") as handle:
+            writer.write(handle)
+        chunks.append((chunk_path, f"pages {start + 1}-{end} of {page_count}"))
+    return chunks
+
+
+def document_chunks_for_extraction(
+    document_path: Path,
+    temp_dir: Path,
+    *,
+    max_pages: int = DEFAULT_PDF_CHUNK_MAX_PAGES,
+) -> list[tuple[Path, str | None]]:
+    try:
+        return split_pdf_into_chunks(document_path, temp_dir, max_pages=max_pages)
+    except Exception:
+        return [(document_path, None)]
+
+
+def has_pdf_header(document_path: Path) -> bool:
+    try:
+        return document_path.read_bytes()[:5] == b"%PDF-"
+    except OSError:
+        return False
+
+
+def keep_latest_document_per_source(
+    documents: list[TimelineDocument],
+) -> list[TimelineDocument]:
+    latest_by_source: dict[str, TimelineDocument] = {}
+    for document in documents:
+        current = latest_by_source.get(document.source_id)
+        if current is None:
+            latest_by_source[document.source_id] = document
+            continue
+        document_sort_key = (
+            document.event_date or "0000-00-00",
+            document.revision_date or "",
+            document.timeline_priority * -1,
+            document.title,
+            document.document_url,
+        )
+        current_sort_key = (
+            current.event_date or "0000-00-00",
+            current.revision_date or "",
+            current.timeline_priority * -1,
+            current.title,
+            current.document_url,
+        )
+        if document_sort_key > current_sort_key:
+            latest_by_source[document.source_id] = document
+    return sort_timeline_documents(list(latest_by_source.values()))
 
 
 def field_has_value(field: dict[str, Any]) -> bool:
@@ -386,6 +464,7 @@ Rules:
 def build_full_schema_extraction_prompt(
     *,
     document: TimelineDocument,
+    document_chunk_label: str | None = None,
     extraction_targets: dict[str, Any],
     current_record: dict[str, Any],
     fill_method: str,
@@ -395,7 +474,13 @@ def build_full_schema_extraction_prompt(
         "inference is strongly supported by the provided document. Mark inferred values "
         "with confidence low or medium and a warning. Do not use external knowledge."
         if fill_method == "inferred_final_pass"
-        else "This is an explicit extraction pass. Do not infer. Fill only values directly supported by the document."
+        else (
+            "This is an evidence-grounded interpretation pass. You should read and "
+            "interpret the document like an HTA analyst: synthesize relevant trial, "
+            "NMA/ITC, economic, guideline, and decision evidence even when the exact "
+            "schema field wording is not present. Do not use external knowledge or "
+            "unsupported guesses."
+        )
     )
     repeatable_sections = [
         {
@@ -419,6 +504,7 @@ Source: {document.source_name}
 Document title: {document.title}
 Document type: {document.document_type}
 Document event date: {document.event_date}
+Document chunk: {document_chunk_label or "full document"}
 
 Extraction targets:
 {json.dumps(extraction_targets, indent=2)}
@@ -455,7 +541,11 @@ Each repeatable_item must have this shape:
 Rules:
 - Only return fields from the requested extraction targets.
 - Do not overwrite or restate values already populated in the current record unless completing an existing repeatable row.
-- For repeatable sections, add as many rows as the document explicitly supports.
+- For repeatable sections, add as many rows as the document supports through direct statements, tables, appendices, committee discussion, or evidence summaries.
+- Interpret evidence broadly but conservatively: if the document describes a pivotal study, comparator, model structure, ICER drivers, utility assumptions, guideline sequence, or agency critique, map it to the relevant old-project field even if the field label is not used verbatim.
+- Prefer useful concise summaries over null values when the document contains enough evidence to support a field.
+- Use "confidence": "medium" when the mapping requires analyst interpretation but is still supported by document text.
+- Use "confidence": "low" plus a warning when the support is weak but still plausible from the document.
 - If a section is absent, return an empty array for that section.
 - If a field is not found, omit it or return it with "value": null.
 - All output must be in English.
@@ -508,9 +598,10 @@ class OpenAIExtractionClient:
             current_record=current_record,
             fill_method=fill_method,
         )
-        uploaded_file = self.client.files.create(
-            file=document_path.open("rb"), purpose="user_data"
-        )
+        with document_path.open("rb") as file_handle:
+            uploaded_file = self.client.files.create(
+                file=file_handle, purpose="user_data"
+            )
         try:
             for attempt in range(1, self.retry_attempts + 1):
                 try:
@@ -546,6 +637,7 @@ class OpenAIExtractionClient:
         *,
         document: TimelineDocument,
         document_path: Path,
+        document_chunk_label: str | None = None,
         extraction_targets: dict[str, Any],
         current_record: dict[str, Any],
         fill_method: str,
@@ -553,13 +645,15 @@ class OpenAIExtractionClient:
     ) -> dict[str, Any]:
         prompt = build_full_schema_extraction_prompt(
             document=document,
+            document_chunk_label=document_chunk_label,
             extraction_targets=extraction_targets,
             current_record=current_record,
             fill_method=fill_method,
         )
-        uploaded_file = self.client.files.create(
-            file=document_path.open("rb"), purpose="user_data"
-        )
+        with document_path.open("rb") as file_handle:
+            uploaded_file = self.client.files.create(
+                file=file_handle, purpose="user_data"
+            )
         try:
             for attempt in range(1, self.retry_attempts + 1):
                 try:
@@ -604,15 +698,16 @@ def run_progressive_hta_extraction(
     ordered_documents = order_documents_for_extraction(
         sort_timeline_documents(normalized_documents)
     )
+    ordered_documents = ordered_documents[:1]
     if max_documents is not None:
         ordered_documents = ordered_documents[:max_documents]
 
     record = build_working_record(run, ordered_documents, model)
-    record["progressive_fill"]["allow_final_inference"] = allow_final_inference
+    record["progressive_fill"]["allow_final_inference"] = False
     record["traceability"]["extraction_status"] = "in_progress"
     extraction_client = client or OpenAIExtractionClient()
 
-    for index, document in enumerate(ordered_documents, start=1):
+    for document in ordered_documents:
         missing_fields = missing_hta_fields(record)
         if not missing_fields:
             break
@@ -628,8 +723,13 @@ def run_progressive_hta_extraction(
                 f"Skipped missing local file: {document.local_path}"
             )
             continue
+        if not has_pdf_header(document_path):
+            record["traceability"]["warnings"].append(
+                f"Skipped non-PDF download masquerading as PDF: {document.title}"
+            )
+            continue
 
-        fill_method = "explicit_latest" if index == 1 else "explicit_backfill"
+        fill_method = "explicit_latest"
         extracted = extraction_client.extract_hta_fields(
             document=document,
             document_path=document_path,
@@ -651,40 +751,6 @@ def run_progressive_hta_extraction(
             }
         )
 
-    if allow_final_inference and missing_hta_fields(record):
-        for document in ordered_documents:
-            missing_fields = missing_hta_fields(record)
-            if not missing_fields:
-                break
-            if document.format != "pdf" or not document.local_path:
-                continue
-            document_path = Path(document.local_path)
-            if not document_path.exists():
-                continue
-
-            extracted = extraction_client.extract_hta_fields(
-                document=document,
-                document_path=document_path,
-                missing_fields=missing_fields,
-                current_record=record,
-                fill_method="inferred_final_pass",
-                model=model,
-            )
-            filled_fields = merge_extracted_fields(
-                record, extracted, document, "inferred_final_pass"
-            )
-            record["traceability"]["audit_log"].append(
-                {
-                    "timestamp": utc_timestamp(),
-                    "action": "inferred_final_pass",
-                    "document_id": document.document_lineage_id
-                    or f"{document.source_id}::{document.document_url}",
-                    "fields_attempted": missing_fields,
-                    "fields_filled": filled_fields,
-                    "notes": None,
-                }
-            )
-
     missing = missing_hta_fields(record)
     for field_name in missing:
         record["hta_results"][field_name]["warnings"].append(
@@ -702,93 +768,80 @@ def run_progressive_full_schema_extraction(
     model: str = DEFAULT_EXTRACTION_MODEL,
     max_documents: int | None = None,
     allow_final_inference: bool = True,
+    latest_per_source: bool = True,
 ) -> dict[str, Any]:
     normalized_documents = normalize_documents(run.documents)
     assign_document_lineages(normalized_documents)
     ordered_documents = order_documents_for_extraction(
         sort_timeline_documents(normalized_documents)
     )
+    if latest_per_source:
+        ordered_documents = order_documents_for_extraction(
+            keep_latest_document_per_source(ordered_documents)
+        )
+    ordered_documents = ordered_documents[:1]
     if max_documents is not None:
         ordered_documents = ordered_documents[:max_documents]
 
     record = build_working_record(run, ordered_documents, model)
-    record["progressive_fill"]["allow_final_inference"] = allow_final_inference
+    record["progressive_fill"]["allow_final_inference"] = False
+    record["progressive_fill"]["pdf_chunk_max_pages"] = DEFAULT_PDF_CHUNK_MAX_PAGES
+    record["progressive_fill"]["latest_per_source"] = latest_per_source
     record["traceability"]["extraction_status"] = "in_progress"
     extraction_client = client or OpenAIExtractionClient()
 
-    for index, document in enumerate(ordered_documents, start=1):
-        extraction_targets = missing_full_schema_targets(record)
-        if not extraction_targets:
-            break
-        if document.format != "pdf" or not document.local_path:
-            record["traceability"]["warnings"].append(
-                f"Skipped non-PDF or missing local file for document: {document.title}"
-            )
-            continue
-
-        document_path = Path(document.local_path)
-        if not document_path.exists():
-            record["traceability"]["warnings"].append(
-                f"Skipped missing local file: {document.local_path}"
-            )
-            continue
-
-        fill_method = "explicit_latest" if index == 1 else "explicit_backfill"
-        extracted = extraction_client.extract_full_schema(
-            document=document,
-            document_path=document_path,
-            extraction_targets=extraction_targets,
-            current_record=record,
-            fill_method=fill_method,
-            model=model,
-        )
-        filled_fields = merge_full_schema_extraction(
-            record, extracted, document, fill_method
-        )
-        record["traceability"]["audit_log"].append(
-            {
-                "timestamp": utc_timestamp(),
-                "action": fill_method,
-                "document_id": document.document_lineage_id
-                or f"{document.source_id}::{document.document_url}",
-                "fields_attempted": list(extraction_targets),
-                "fields_filled": filled_fields,
-                "notes": None,
-            }
-        )
-
-    if allow_final_inference:
-        for document in ordered_documents[:1]:
+    with TemporaryDirectory() as temp_dir_name:
+        chunk_dir = Path(temp_dir_name)
+        for document in ordered_documents:
             extraction_targets = missing_full_schema_targets(record)
             if not extraction_targets:
                 break
             if document.format != "pdf" or not document.local_path:
+                record["traceability"]["warnings"].append(
+                    f"Skipped non-PDF or missing local file for document: {document.title}"
+                )
                 continue
             document_path = Path(document.local_path)
             if not document_path.exists():
+                record["traceability"]["warnings"].append(
+                    f"Skipped missing local file: {document.local_path}"
+                )
                 continue
-            extracted = extraction_client.extract_full_schema(
-                document=document,
-                document_path=document_path,
-                extraction_targets=extraction_targets,
-                current_record=record,
-                fill_method="inferred_final_pass",
-                model=model,
-            )
-            filled_fields = merge_full_schema_extraction(
-                record, extracted, document, "inferred_final_pass"
-            )
-            record["traceability"]["audit_log"].append(
-                {
-                    "timestamp": utc_timestamp(),
-                    "action": "inferred_final_pass",
-                    "document_id": document.document_lineage_id
-                    or f"{document.source_id}::{document.document_url}",
-                    "fields_attempted": list(extraction_targets),
-                    "fields_filled": filled_fields,
-                    "notes": "Final controlled inference pass on most recent document.",
-                }
-            )
+            if not has_pdf_header(document_path):
+                record["traceability"]["warnings"].append(
+                    f"Skipped non-PDF download masquerading as PDF: {document.title}"
+                )
+                continue
+
+            chunks = document_chunks_for_extraction(document_path, chunk_dir)
+            fill_method = "explicit_latest"
+            for chunk_path, chunk_label in chunks:
+                extraction_targets = missing_full_schema_targets(record)
+                if not extraction_targets:
+                    break
+                extracted = extraction_client.extract_full_schema(
+                    document=document,
+                    document_path=chunk_path,
+                    document_chunk_label=chunk_label,
+                    extraction_targets=extraction_targets,
+                    current_record=record,
+                    fill_method=fill_method,
+                    model=model,
+                )
+                filled_fields = merge_full_schema_extraction(
+                    record, extracted, document, fill_method
+                )
+                record["traceability"]["audit_log"].append(
+                    {
+                        "timestamp": utc_timestamp(),
+                        "action": fill_method,
+                        "document_id": document.document_lineage_id
+                        or f"{document.source_id}::{document.document_url}",
+                        "fields_attempted": list(extraction_targets),
+                        "fields_filled": filled_fields,
+                        "notes": chunk_label,
+                    }
+                )
 
     missing_hta = missing_hta_fields(record)
     for field_name in missing_hta:

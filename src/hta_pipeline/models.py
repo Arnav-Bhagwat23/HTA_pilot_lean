@@ -9,6 +9,13 @@ from typing import Any
 class SearchRequest:
     product_name: str
     country: str
+    generic_name: str | None = None
+    indication: str | None = None
+    raw_query: str | None = None
+    aliases: list[str] = field(default_factory=list)
+    search_terms: list[str] = field(default_factory=list)
+    normalization_confidence: str = "not_used"
+    normalization_notes: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

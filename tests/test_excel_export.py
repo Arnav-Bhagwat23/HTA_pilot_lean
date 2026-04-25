@@ -69,6 +69,30 @@ def _sample_record():
                 "warnings": ["Field was not found after progressive extraction."],
             },
         },
+        "trial_results": [
+            {
+                "row_id": "trial-a",
+                "row_label": "Trial A",
+                "row_type": "pivotal_trial",
+                "fields": {
+                    "pivotal_trial": {
+                        "value": "Trial A",
+                        "fill_method": "explicit_latest",
+                        "source_document_id": "smc_uk::sample",
+                        "source_document_title": "dostarlimab (Jemperli)",
+                        "source_document_url": "https://example.test/sample.pdf",
+                        "source_document_date": "2026-01-01",
+                        "source_page": "3",
+                        "evidence_snippet": "Trial A",
+                        "confidence": "high",
+                        "warnings": [],
+                    }
+                },
+            }
+        ],
+        "nma_itc_results": [],
+        "economic_evaluation": [],
+        "guideline_results": [],
         "traceability": {
             "created_at": "2026-04-20T10:00:00+00:00",
             "updated_at": "2026-04-20T10:01:00+00:00",
@@ -90,7 +114,7 @@ def _sample_record():
 
 
 class ExcelExportTests(unittest.TestCase):
-    def test_write_extraction_excel_creates_six_review_sheets(self) -> None:
+    def test_write_extraction_excel_creates_old_project_and_review_sheets(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             destination = Path(temp_dir) / "export.xlsx"
             write_extraction_excel(_sample_record(), destination)
@@ -100,6 +124,11 @@ class ExcelExportTests(unittest.TestCase):
             workbook.sheetnames,
             [
                 "HTA Results",
+                "Trial Results",
+                "NMA Results",
+                "Economic Evaluation",
+                "Guideline Results",
+                "Field Provenance",
                 "Documents Considered",
                 "Extraction Audit Log",
                 "Missing Fields & Warnings",
@@ -107,13 +136,15 @@ class ExcelExportTests(unittest.TestCase):
                 "Source URLs",
             ],
         )
-        self.assertEqual(workbook["HTA Results"]["A1"].value, "product_name")
+        self.assertEqual(workbook["HTA Results"]["A1"].value, "Indication")
         self.assertEqual(
-            workbook["HTA Results"]["F2"].value,
+            workbook["HTA Results"]["E2"].value,
             "Not recommended for use within NHSScotland.",
         )
+        self.assertEqual(workbook["Trial Results"]["E2"].value, "Trial A")
+        self.assertEqual(workbook["Field Provenance"]["A1"].value, "product_name")
         self.assertEqual(
-            workbook["Missing Fields & Warnings"]["F2"].value,
+            workbook["Missing Fields & Warnings"]["H2"].value,
             "missing_field",
         )
         self.assertEqual(workbook["Run Metadata"]["A1"].value, "metadata_key")

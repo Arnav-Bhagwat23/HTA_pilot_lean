@@ -39,7 +39,11 @@ def search_aemps(
     source: SourceDefinition, request: SearchRequest
 ) -> list[RetrievedDocument]:
     session = build_session()
-    aliases = build_product_aliases(request.product_name)
+    aliases = build_product_aliases(
+        request.product_name,
+        generic_name=request.generic_name,
+        extra_aliases=request.aliases,
+    )
     response = session.get(DATA_URL, timeout=60)
     response.raise_for_status()
     items = response.json()

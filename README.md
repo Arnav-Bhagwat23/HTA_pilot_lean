@@ -54,7 +54,7 @@ set PYTHONPATH=src
 python -m hta_pipeline.cli "drug name" "United Kingdom"
 ```
 
-To run retrieval, extraction, and create the six-sheet Excel review workbook:
+To run retrieval, extraction, and create the old-project-style Excel workbook:
 
 ```bash
 python -m hta_pipeline.cli "Jemperli" "United Kingdom" --mode extract --export-excel
@@ -64,6 +64,20 @@ To run the old-project-compatible full-schema extraction layer:
 
 ```bash
 python -m hta_pipeline.cli "Jemperli" "United Kingdom" --mode extract --schema-scope full
+```
+
+To run full-schema extraction and export the old-project-style workbook:
+
+```bash
+python -m hta_pipeline.cli "Jemperli" "United Kingdom" --mode extract --schema-scope full --export-excel
+```
+
+Full-schema extraction defaults to `gpt-4.1-mini` and splits larger PDFs into
+temporary page chunks before sending them to the model. You can still override
+the model explicitly:
+
+```bash
+python -m hta_pipeline.cli "Jemperli" "United Kingdom" --mode extract --schema-scope full --model gpt-4.1
 ```
 
 To convert an existing filled extraction JSON into Excel:

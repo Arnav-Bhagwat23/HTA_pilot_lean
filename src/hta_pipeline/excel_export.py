@@ -5,25 +5,24 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .schema import (
+    ECONOMIC_EVALUATION_FIELDS,
+    FIELD_LABELS,
+    GUIDELINE_RESULT_FIELDS,
+    HTA_RESULT_FIELDS,
+    NMA_ITC_RESULT_FIELDS,
+    TRIAL_RESULT_FIELDS,
+)
 from .storage import results_dir, slugify
 
 
-HTA_FIELD_LABELS = {
-    "indication": "Indication",
-    "country": "Country",
-    "brand_and_company": "Brand and company",
-    "regulatory_approval": "Regulatory approval",
-    "hta_outcome": "HTA outcome",
-    "reimbursed_population": "Reimbursed population",
-    "cited_driver_efficacy_vs_comparator": "Cited driver: efficacy vs comparator",
-    "cited_driver_nma_itc_results": "Cited driver: NMA/ITC results",
-    "cited_driver_safety_tolerability": "Cited driver: safety/tolerability",
-    "cited_driver_qol": "Cited driver: quality of life",
-    "cited_driver_economic_factors": "Cited driver: economic factors",
-    "cited_driver_unmet_need_innovation": "Cited driver: unmet need/innovation",
-    "rationale": "Rationale",
-    "notes": "Notes",
-}
+OLD_PROJECT_SHEET_SPECS = [
+    ("HTA Results", "hta_results", HTA_RESULT_FIELDS),
+    ("Trial Results", "trial_results", TRIAL_RESULT_FIELDS),
+    ("NMA Results", "nma_itc_results", NMA_ITC_RESULT_FIELDS),
+    ("Economic Evaluation", "economic_evaluation", ECONOMIC_EVALUATION_FIELDS),
+    ("Guideline Results", "guideline_results", GUIDELINE_RESULT_FIELDS),
+]
 
 
 def utc_timestamp() -> str:
@@ -92,6 +91,55 @@ def _field_value(field: dict[str, Any], key: str) -> Any:
     return value
 
 
+def _field_label(field_name: str) -> str:
+    return FIELD_LABELS.get(field_name, field_name.replace("_", " ").title())
+
+
+def _extracted_value(field: dict[str, Any] | None) -> Any:
+    if not field:
+        return None
+    return field.get("value")
+
+
+def _old_project_headers(fields: tuple[str, ...]) -> list[str]:
+    return [_field_label(field_name) for field_name in fields]
+
+
+def build_old_project_rows(
+    record: dict[str, Any], section_key: str, fields: tuple[str, ...]
+) -> list[list[Any]]:
+    if section_key == "hta_results":
+        section = record.get(section_key, {})
+        return [[_extracted_value(section.get(field_name)) for field_name in fields]]
+
+    rows = []
+    for item in record.get(section_key, []) or []:
+        item_fields = item.get("fields", {})
+        rows.append([_extracted_value(item_fields.get(field_name)) for field_name in fields])
+    return rows
+
+
+def iter_extracted_fields(record: dict[str, Any]):
+    for field_name, field in record.get("hta_results", {}).items():
+        yield "hta_results", None, None, field_name, field
+
+    for section_key in (
+        "trial_results",
+        "nma_itc_results",
+        "economic_evaluation",
+        "guideline_results",
+    ):
+        for item in record.get(section_key, []) or []:
+            for field_name, field in item.get("fields", {}).items():
+                yield (
+                    section_key,
+                    item.get("row_id"),
+                    item.get("row_label"),
+                    field_name,
+                    field,
+                )
+
+
 def _document_lookup(record: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {
         document.get("document_id"): document
@@ -102,16 +150,19 @@ def _document_lookup(record: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 def _used_fields_by_document(record: dict[str, Any]) -> dict[str, list[str]]:
     used: dict[str, list[str]] = {}
-    for field_name, field in record.get("hta_results", {}).items():
+    for section_key, row_id, _row_label, field_name, field in iter_extracted_fields(record):
         document_id = field.get("source_document_id")
         if field.get("value") and document_id:
-            used.setdefault(document_id, []).append(field_name)
+            field_path = f"{section_key}.{field_name}"
+            if row_id:
+                field_path = f"{section_key}[{row_id}].{field_name}"
+            used.setdefault(document_id, []).append(field_path)
     return used
 
 
 def _pages_by_document(record: dict[str, Any]) -> dict[str, list[str]]:
     pages: dict[str, list[str]] = {}
-    for field in record.get("hta_results", {}).values():
+    for _section_key, _row_id, _row_label, _field_name, field in iter_extracted_fields(record):
         document_id = field.get("source_document_id")
         source_page = field.get("source_page")
         if field.get("value") and document_id and source_page:
@@ -124,7 +175,7 @@ def _pages_by_document(record: dict[str, Any]) -> dict[str, list[str]]:
 def _confidence_summary(record: dict[str, Any]) -> dict[str, str]:
     confidence_rank = {"unknown": 0, "low": 1, "medium": 2, "high": 3}
     confidence_by_document: dict[str, list[str]] = {}
-    for field in record.get("hta_results", {}).values():
+    for _section_key, _row_id, _row_label, _field_name, field in iter_extracted_fields(record):
         document_id = field.get("source_document_id")
         confidence = field.get("confidence")
         if field.get("value") and document_id and confidence:
@@ -139,17 +190,19 @@ def _confidence_summary(record: dict[str, Any]) -> dict[str, str]:
     return summaries
 
 
-def build_hta_results_rows(record: dict[str, Any]) -> list[list[Any]]:
+def build_field_provenance_rows(record: dict[str, Any]) -> list[list[Any]]:
     document_set = record["document_set"]
     rows = []
-    for field_name, field in record.get("hta_results", {}).items():
+    for section_key, row_id, row_label, field_name, field in iter_extracted_fields(record):
         rows.append(
             [
                 document_set.get("product_name"),
                 document_set.get("country"),
-                "hta_results",
+                section_key,
+                row_id,
+                row_label,
                 field_name,
-                HTA_FIELD_LABELS.get(field_name, field_name.replace("_", " ").title()),
+                _field_label(field_name),
                 field.get("value"),
                 bool(field.get("value")),
                 field.get("fill_method"),
@@ -240,7 +293,7 @@ def build_audit_rows(record: dict[str, Any]) -> list[list[Any]]:
 def build_warning_rows(record: dict[str, Any]) -> list[list[Any]]:
     document_set = record["document_set"]
     rows = []
-    for field_name, field in record.get("hta_results", {}).items():
+    for section_key, row_id, row_label, field_name, field in iter_extracted_fields(record):
         warnings = field.get("warnings") or []
         confidence = field.get("confidence")
         issue_types: list[tuple[str, str]] = []
@@ -255,9 +308,11 @@ def build_warning_rows(record: dict[str, Any]) -> list[list[Any]]:
                 [
                     document_set.get("product_name"),
                     document_set.get("country"),
-                    "hta_results",
+                    section_key,
+                    row_id,
+                    row_label,
                     field_name,
-                    HTA_FIELD_LABELS.get(field_name, field_name.replace("_", " ").title()),
+                    _field_label(field_name),
                     issue_type,
                     field.get("value"),
                     confidence,
@@ -277,14 +332,16 @@ def build_metadata_rows(record: dict[str, Any], json_source_path: Path | None) -
     document_set = record["document_set"]
     traceability = record.get("traceability", {})
     progressive_fill = record.get("progressive_fill", {})
-    hta_results = record.get("hta_results", {})
-    fields_total = len(hta_results)
-    fields_filled = sum(1 for field in hta_results.values() if field.get("value"))
+    extracted_fields = list(iter_extracted_fields(record))
+    fields_total = len(extracted_fields)
+    fields_filled = sum(1 for *_prefix, field in extracted_fields if field.get("value"))
     audit_document_ids = {
         entry.get("document_id") for entry in traceability.get("audit_log", [])
     }
     warnings_count = len(traceability.get("warnings") or [])
-    warnings_count += sum(len(field.get("warnings") or []) for field in hta_results.values())
+    warnings_count += sum(
+        len(field.get("warnings") or []) for *_prefix, field in extracted_fields
+    )
     values = {
         "schema_version": record.get("schema_version"),
         "product_name": document_set.get("product_name"),
@@ -303,6 +360,10 @@ def build_metadata_rows(record: dict[str, Any], json_source_path: Path | None) -
         "fields_total_count": fields_total,
         "fields_filled_count": fields_filled,
         "fields_missing_count": fields_total - fields_filled,
+        "trial_rows_count": len(record.get("trial_results", []) or []),
+        "nma_itc_rows_count": len(record.get("nma_itc_results", []) or []),
+        "economic_evaluation_rows_count": len(record.get("economic_evaluation", []) or []),
+        "guideline_rows_count": len(record.get("guideline_results", []) or []),
         "warnings_count": warnings_count,
         "json_source_path": str(json_source_path) if json_source_path else "",
         "excel_exported_at": utc_timestamp(),
@@ -349,11 +410,22 @@ def write_extraction_excel(
 
     sheet_specs = [
         (
-            "HTA Results",
+            sheet_name,
+            _old_project_headers(fields),
+            build_old_project_rows(record, section_key, fields),
+        )
+        for sheet_name, section_key, fields in OLD_PROJECT_SHEET_SPECS
+    ]
+    sheet_specs.extend(
+        [
+        (
+            "Field Provenance",
             [
                 "product_name",
                 "country",
                 "schema_section",
+                "row_id",
+                "row_label",
                 "field_name",
                 "field_label",
                 "extracted_value",
@@ -370,7 +442,7 @@ def write_extraction_excel(
                 "review_status",
                 "reviewer_notes",
             ],
-            build_hta_results_rows(record),
+            build_field_provenance_rows(record),
         ),
         (
             "Documents Considered",
@@ -422,6 +494,8 @@ def write_extraction_excel(
                 "product_name",
                 "country",
                 "schema_section",
+                "row_id",
+                "row_label",
                 "field_name",
                 "field_label",
                 "issue_type",
@@ -455,7 +529,8 @@ def write_extraction_excel(
             ],
             build_source_url_rows(record),
         ),
-    ]
+        ]
+    )
 
     header_fill = PatternFill("solid", fgColor="1F4E79")
     header_font = Font(color="FFFFFF", bold=True)
@@ -494,7 +569,7 @@ def write_extraction_excel(
             )
             sheet.add_table(table)
         else:
-            sheet.append(["No missing fields or warnings."])
+            sheet.append(["No rows extracted for this section."])
             sheet["A2"].fill = title_fill
             sheet["A2"].font = Font(italic=True)
 

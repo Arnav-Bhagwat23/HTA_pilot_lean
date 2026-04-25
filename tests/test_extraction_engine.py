@@ -10,15 +10,18 @@ from hta_pipeline.extraction import (
     missing_hta_fields,
     run_progressive_full_schema_extraction,
     run_progressive_hta_extraction,
+    split_pdf_into_chunks,
 )
 from hta_pipeline.models import RetrievedDocument, RetrievalRun, SearchRequest
 from hta_pipeline.timeline import assign_document_lineages, normalize_documents
 
 
-def _retrieved_document(title: str, date: str, local_path: str) -> RetrievedDocument:
+def _retrieved_document(
+    title: str, date: str, local_path: str, source_id: str = "nice_uk"
+) -> RetrievedDocument:
     return RetrievedDocument(
-        source_id="nice_uk",
-        source_name="NICE",
+        source_id=source_id,
+        source_name="NICE" if source_id == "nice_uk" else "SMC",
         source_type="hta_agency",
         country="United Kingdom",
         title=title,
@@ -48,6 +51,8 @@ class FakeExtractionClient:
                 "missing_fields": list(missing_fields),
                 "fill_method": fill_method,
                 "title": document.title,
+                "document_path": str(kwargs["document_path"]),
+                "document_chunk_label": kwargs.get("document_chunk_label"),
             }
         )
         if fill_method == "explicit_latest":
@@ -57,16 +62,6 @@ class FakeExtractionClient:
                     "source_page": "1",
                     "evidence_snippet": "The committee recommended...",
                     "confidence": "high",
-                    "warnings": [],
-                }
-            }
-        if fill_method == "explicit_backfill":
-            return {
-                "reimbursed_population": {
-                    "value": "Adults with previously treated disease.",
-                    "source_page": "2",
-                    "evidence_snippet": "Adults with...",
-                    "confidence": "medium",
                     "warnings": [],
                 }
             }
@@ -87,6 +82,8 @@ class FakeFullSchemaExtractionClient:
             {
                 "fill_method": fill_method,
                 "title": document.title,
+                "document_path": str(kwargs["document_path"]),
+                "document_chunk_label": kwargs.get("document_chunk_label"),
                 "targets": kwargs["extraction_targets"],
             }
         )
@@ -128,59 +125,6 @@ class FakeFullSchemaExtractionClient:
                 "economic_evaluation": [],
                 "guideline_results": [],
             }
-        if fill_method == "explicit_backfill":
-            return {
-                "hta_results": {
-                    "hta_outcome": {
-                        "value": "This should not overwrite.",
-                        "source_page": "1",
-                        "evidence_snippet": "overwrite",
-                        "confidence": "high",
-                        "warnings": [],
-                    },
-                    "reimbursed_population": {
-                        "value": "Adults with eligible disease.",
-                        "source_page": "2",
-                        "evidence_snippet": "Adults",
-                        "confidence": "medium",
-                        "warnings": [],
-                    },
-                },
-                "trial_results": [
-                    {
-                        "row_id": "trial-b",
-                        "row_label": "Trial B",
-                        "row_type": "supporting_trial",
-                        "fields": {
-                            "pivotal_trial": {
-                                "value": "Trial B",
-                                "source_page": "5",
-                                "evidence_snippet": "Trial B",
-                                "confidence": "medium",
-                                "warnings": [],
-                            }
-                        },
-                    }
-                ],
-                "nma_itc_results": [
-                    {
-                        "row_id": "nma-1",
-                        "row_label": "NMA 1",
-                        "row_type": "NMA",
-                        "fields": {
-                            "key_results": {
-                                "value": "Mixed indirect comparison results.",
-                                "source_page": "8",
-                                "evidence_snippet": "mixed results",
-                                "confidence": "medium",
-                                "warnings": [],
-                            }
-                        },
-                    }
-                ],
-                "economic_evaluation": [],
-                "guideline_results": [],
-            }
         return {}
 
 
@@ -195,7 +139,7 @@ class ExtractionEngineTests(unittest.TestCase):
         record = build_working_record(run, [], "test-model")
         self.assertEqual(set(missing_hta_fields(record)), set(HTA_RESULT_FIELDS))
 
-    def test_progressive_extraction_fills_missing_fields_without_overwrite(self) -> None:
+    def test_progressive_extraction_reads_only_latest_document(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             pdf_path = Path(temp_dir) / "doc.pdf"
             pdf_path.write_bytes(b"%PDF-1.4\n")
@@ -223,23 +167,13 @@ class ExtractionEngineTests(unittest.TestCase):
         self.assertEqual(
             record["hta_results"]["hta_outcome"]["fill_method"], "explicit_latest"
         )
-        self.assertEqual(
-            record["hta_results"]["reimbursed_population"]["value"],
-            "Adults with previously treated disease.",
-        )
-        self.assertEqual(
-            record["hta_results"]["reimbursed_population"]["fill_method"],
-            "explicit_backfill",
-        )
+        self.assertIsNone(record["hta_results"]["reimbursed_population"]["value"])
+        self.assertEqual(len(client.calls), 1)
         self.assertEqual(client.calls[0]["fill_method"], "explicit_latest")
-        self.assertNotIn(
-            "hta_outcome",
-            client.calls[1]["missing_fields"],
-            "Backfill calls should only request fields still missing.",
-        )
+        self.assertEqual(client.calls[0]["title"], "Newer guidance")
         self.assertEqual(record["traceability"]["extraction_status"], "partial")
 
-    def test_full_schema_extraction_appends_repeatable_rows_without_overwrite(self) -> None:
+    def test_full_schema_extraction_reads_only_latest_document(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             pdf_path = Path(temp_dir) / "doc.pdf"
             pdf_path.write_bytes(b"%PDF-1.4\n")
@@ -264,20 +198,90 @@ class ExtractionEngineTests(unittest.TestCase):
             record["hta_results"]["hta_outcome"]["value"],
             "Recommended with restrictions.",
         )
-        self.assertEqual(
-            record["hta_results"]["reimbursed_population"]["value"],
-            "Adults with eligible disease.",
-        )
-        self.assertEqual(len(record["trial_results"]), 2)
+        self.assertIsNone(record["hta_results"]["reimbursed_population"]["value"])
+        self.assertEqual(len(record["trial_results"]), 1)
         self.assertEqual(record["trial_results"][0]["row_id"], "trial-a")
-        self.assertEqual(record["trial_results"][1]["row_id"], "trial-b")
-        self.assertEqual(len(record["nma_itc_results"]), 1)
-        self.assertEqual(
-            record["nma_itc_results"][0]["fields"]["key_results"]["value"],
-            "Mixed indirect comparison results.",
-        )
+        self.assertEqual(len(record["nma_itc_results"]), 0)
+        self.assertEqual(len(client.calls), 1)
         self.assertEqual(client.calls[0]["fill_method"], "explicit_latest")
-        self.assertEqual(client.calls[1]["fill_method"], "explicit_backfill")
+        self.assertEqual(client.calls[0]["title"], "Newer guidance")
+
+    def test_full_schema_extraction_defaults_to_single_latest_document(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pdf_path = Path(temp_dir) / "doc.pdf"
+            pdf_path.write_bytes(b"%PDF-1.4\n")
+            run = RetrievalRun(
+                request=SearchRequest(product_name="Keytruda", country="United Kingdom"),
+                generated_at="2026-01-01T00:00:00+00:00",
+                documents=[
+                    _retrieved_document("Older NICE guidance", "2024-01-01", str(pdf_path), "nice_uk"),
+                    _retrieved_document("Newer NICE guidance", "2025-01-01", str(pdf_path), "nice_uk"),
+                    _retrieved_document("Latest SMC advice", "2025-06-01", str(pdf_path), "smc_uk"),
+                ],
+                sources_considered=["nice_uk", "smc_uk"],
+            )
+            client = FakeFullSchemaExtractionClient()
+            record = run_progressive_full_schema_extraction(
+                run,
+                client=client,
+                model="test-model",
+                allow_final_inference=False,
+            )
+
+        called_titles = [call["title"] for call in client.calls]
+        considered_titles = [
+            document["title"] for document in record["document_set"]["documents_considered"]
+        ]
+        self.assertNotIn("Older NICE guidance", called_titles)
+        self.assertEqual(considered_titles, ["Latest SMC advice"])
+        self.assertEqual(called_titles, ["Latest SMC advice"])
+        self.assertTrue(record["progressive_fill"]["latest_per_source"])
+
+    def test_pdf_chunking_splits_large_pdf_into_page_ranges(self) -> None:
+        from pypdf import PdfWriter
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pdf_path = Path(temp_dir) / "large.pdf"
+            writer = PdfWriter()
+            for _ in range(5):
+                writer.add_blank_page(width=72, height=72)
+            with pdf_path.open("wb") as handle:
+                writer.write(handle)
+
+            chunk_dir = Path(temp_dir) / "chunks"
+            chunk_dir.mkdir()
+            chunks = split_pdf_into_chunks(pdf_path, chunk_dir, max_pages=2)
+
+        self.assertEqual([label for _path, label in chunks], ["pages 1-2 of 5", "pages 3-4 of 5", "pages 5-5 of 5"])
+
+    def test_full_schema_extraction_uses_pdf_chunks_for_large_documents(self) -> None:
+        from pypdf import PdfWriter
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pdf_path = Path(temp_dir) / "large.pdf"
+            writer = PdfWriter()
+            for _ in range(13):
+                writer.add_blank_page(width=72, height=72)
+            with pdf_path.open("wb") as handle:
+                writer.write(handle)
+
+            run = RetrievalRun(
+                request=SearchRequest(product_name="Keytruda", country="United Kingdom"),
+                generated_at="2026-01-01T00:00:00+00:00",
+                documents=[_retrieved_document("Large guidance", "2025-01-01", str(pdf_path))],
+                sources_considered=["nice_uk"],
+            )
+            client = FakeFullSchemaExtractionClient()
+            run_progressive_full_schema_extraction(
+                run,
+                client=client,
+                model="test-model",
+                allow_final_inference=False,
+            )
+
+        chunk_labels = [call["document_chunk_label"] for call in client.calls]
+        self.assertIn("pages 1-12 of 13", chunk_labels)
+        self.assertIn("pages 13-13 of 13", chunk_labels)
 
 
 if __name__ == "__main__":

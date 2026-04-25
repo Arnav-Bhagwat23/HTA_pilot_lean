@@ -133,7 +133,11 @@ def search_has(
     source: SourceDefinition, request: SearchRequest
 ) -> list[RetrievedDocument]:
     session = build_session()
-    aliases = build_product_aliases(request.product_name)
+    aliases = build_product_aliases(
+        request.product_name,
+        generic_name=request.generic_name,
+        extra_aliases=request.aliases,
+    )
     params = {
         "liaison_word-empty": "and",
         "expression": "exact",

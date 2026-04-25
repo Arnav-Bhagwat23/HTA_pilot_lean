@@ -8,11 +8,13 @@ from pathlib import Path
 from .excel_export import export_extraction_json_to_excel, write_extraction_excel
 from .extraction import (
     DEFAULT_EXTRACTION_MODEL,
+    DEFAULT_FULL_SCHEMA_MODEL,
     run_progressive_full_schema_extraction,
     run_progressive_hta_extraction,
     save_extraction_record,
 )
 from .models import SearchRequest
+from .query_normalization import normalize_search_request
 from .retriever import plan_retrieval, run_retrieval
 from .storage import save_manifest
 
@@ -30,6 +32,14 @@ def build_parser() -> argparse.ArgumentParser:
         "country",
         nargs="?",
         help="Country to search within.",
+    )
+    parser.add_argument(
+        "--query",
+        default=None,
+        help=(
+            "Optional free-text query such as 'Keytruda first-line NSCLC in Germany'. "
+            "The pipeline will use the LLM to normalize it into product, indication, and country."
+        ),
     )
     parser.add_argument(
         "--mode",
@@ -69,8 +79,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--model",
-        default=DEFAULT_EXTRACTION_MODEL,
-        help="OpenAI model to use for extraction mode.",
+        default=None,
+        help=(
+            "OpenAI model to use for extraction mode. Defaults to gpt-4.1-mini."
+        ),
     )
     parser.add_argument(
         "--max-documents",
@@ -99,13 +111,22 @@ def main() -> None:
         print(json.dumps({"excel_path": str(excel_path)}, indent=2))
         return
 
-    if not args.product_name or not args.country:
-        parser.error("product_name and country are required unless using export-excel mode.")
+    if not args.query and (not args.product_name or not args.country):
+        parser.error(
+            "product_name and country are required unless using --query or export-excel mode."
+        )
 
-    request = SearchRequest(product_name=args.product_name, country=args.country)
+    request = normalize_search_request(
+        product_name=args.product_name,
+        country=args.country,
+        raw_query=args.query,
+    )
     if args.mode == "plan":
         plan = plan_retrieval(request)
-        payload = [asdict(candidate) for candidate in plan]
+        payload = {
+            "normalized_request": asdict(request),
+            "plan": [asdict(candidate) for candidate in plan],
+        }
         print(json.dumps(payload, indent=2))
         return
 
@@ -117,9 +138,14 @@ def main() -> None:
             if args.schema_scope == "full"
             else run_progressive_hta_extraction
         )
+        extraction_model = args.model or (
+            DEFAULT_FULL_SCHEMA_MODEL
+            if args.schema_scope == "full"
+            else DEFAULT_EXTRACTION_MODEL
+        )
         extraction_record = extraction_runner(
             run,
-            model=args.model,
+            model=extraction_model,
             max_documents=args.max_documents,
             allow_final_inference=not args.no_final_inference,
         )

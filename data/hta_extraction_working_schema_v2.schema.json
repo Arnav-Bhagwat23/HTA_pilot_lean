@@ -237,6 +237,10 @@
         "missing_field_policy": {
           "type": "string",
           "const": "leave_null_when_not_supported"
+        },
+        "pdf_chunk_max_pages": {
+          "type": ["integer", "null"],
+          "description": "Maximum pages per temporary PDF chunk used for full-schema extraction."
         }
       }
     },

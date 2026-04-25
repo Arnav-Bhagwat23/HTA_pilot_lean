@@ -11,16 +11,29 @@ def normalize_text(value: str) -> str:
     return " ".join(value.split())
 
 
-def build_product_aliases(product_name: str) -> list[str]:
+def build_product_aliases(
+    product_name: str,
+    *,
+    generic_name: str | None = None,
+    extra_aliases: list[str] | None = None,
+) -> list[str]:
     aliases = load_product_aliases()
-    normalized_product = normalize_text(product_name)
+    requested_values = [product_name]
+    if generic_name:
+        requested_values.append(generic_name)
+    if extra_aliases:
+        requested_values.extend(extra_aliases)
+
+    normalized_requested = {
+        normalize_text(value) for value in requested_values if normalize_text(value)
+    }
 
     for canonical_name, values in aliases.items():
         normalized_values = {normalize_text(value) for value in values + [canonical_name]}
-        if normalized_product in normalized_values:
-            return sorted(normalized_values)
+        if normalized_requested & normalized_values:
+            return sorted(normalized_values | normalized_requested)
 
-    return [normalized_product]
+    return sorted(normalized_requested) or [normalize_text(product_name)]
 
 
 def text_contains_any_alias(text: str, aliases: list[str]) -> bool:
