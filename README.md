@@ -71,6 +71,32 @@ set PYTHONPATH=src
 python -m hta_pipeline.cli "drug name" "United Kingdom"
 ```
 
+## Simplest way to run it
+
+If you want other people to use this with the least setup possible:
+
+```bash
+pip install -r requirements.txt
+set PYTHONPATH=src
+python -m hta_pipeline.interactive
+```
+
+The interactive runner will:
+
+- ask for an OpenAI API key if one is not already in `.env`
+- save that key locally in `.env`
+- ask for a free-text prompt such as `Keytruda first-line NSCLC in Germany`
+- run retrieval
+- run full-schema extraction
+- write JSON and Excel outputs
+
+This is the closest current workflow to:
+
+1. clone the repo
+2. paste your API key
+3. paste your prompt
+4. get the output files
+
 To run retrieval, extraction, and create the old-project-style Excel workbook:
 
 ```bash
