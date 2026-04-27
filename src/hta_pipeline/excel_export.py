@@ -98,7 +98,7 @@ def _field_label(field_name: str) -> str:
 def _extracted_value(field: dict[str, Any] | None) -> Any:
     if not field:
         return None
-    return field.get("value")
+    return _stringify(field.get("value"))
 
 
 def _old_project_headers(fields: tuple[str, ...]) -> list[str]:
@@ -554,7 +554,6 @@ def write_extraction_excel(
                 cell.alignment = wrapped
 
         sheet.freeze_panes = "A2"
-        sheet.auto_filter.ref = sheet.dimensions
 
         if rows:
             table_ref = f"A1:{get_column_letter(len(headers))}{len(rows) + 1}"
